@@ -25,11 +25,24 @@ import {
 } from "../lib/marcarCriterios";
 import {
   CHIP_FC_SLOTS,
+  autoFillChipAssignments,
+  chipFcSlotKey,
+  collectFreeChipSlots,
   fcLibresParaChip,
   formatFcLibresLabel,
+  parseChipFcSlotKey,
   type ChipAsignacionRow,
+  type ChipFcSlot,
 } from "../lib/chipDisponibilidad";
 import { buildChipPanels, type ChipCatalogo } from "../lib/chipPageData";
+import { canEditData } from "@shared/roles";
+import {
+  defaultMaquinaForChip,
+  formatMaquinaLabel,
+  parseMaquinaCod,
+  toMaquinaCatalogo,
+  type MaquinaCatalogo,
+} from "../lib/maquinas";
 import {
   findLotId,
   lotLnForDisplay,
@@ -94,6 +107,18 @@ type PteChipItem = {
   Fecha_Lect_Marc: string | null;
   sinChipPte: boolean;
   repetirDetalle: Array<{ NumChip: number; FC: number | null; Chip_Nombre: string | null }>;
+};
+
+type PteChipLoadedChip = {
+  numChip: number;
+  nombre: string;
+  maquina: string;
+  flowcells: Array<{
+    fc: number;
+    numBN: number;
+    numLectura: number;
+    numLectMarc: number;
+  } | null>;
 };
 
 const HACER_SELECT_CLASS =
@@ -188,17 +213,49 @@ function flattenSelectedPteChipItems(
       });
     }
   }
+  items.sort(
+    (a, b) =>
+      a.NumBN - b.NumBN || a.NumLectura - b.NumLectura || a.NumLectMarc - b.NumLectMarc
+  );
   return items;
 }
 
-function autoFillFcAssignments(items: PteChipItem[], libres: number[]): Record<string, number> {
-  const next: Record<string, number> = {};
-  items.forEach((item, i) => {
-    const fc = libres[i];
-    if (fc == null) return;
-    next[pteChipLmKey(item.NumBN, item.NumLectura, item.NumLectMarc)] = fc;
-  });
-  return next;
+function pteChipItemKey(item: PteChipItem): string {
+  return pteChipLmKey(item.NumBN, item.NumLectura, item.NumLectMarc);
+}
+
+function buildPteChipLoadedSchema(
+  items: PteChipItem[],
+  assigns: Record<string, ChipFcSlot>,
+  catalog: ChipCatalogo[],
+  maquinaLabelByChip: Record<number, string> = {}
+): PteChipLoadedChip[] {
+  const byChip = new Map<number, PteChipLoadedChip>();
+  for (const item of items) {
+    const slot = assigns[pteChipItemKey(item)];
+    if (!slot) continue;
+    let chip = byChip.get(slot.numChip);
+    if (!chip) {
+      const cat = catalog.find((c) => Number(c.NumChip_D) === slot.numChip);
+      chip = {
+        numChip: slot.numChip,
+        nombre: String(cat?.Nombre_Chip ?? "").trim(),
+        maquina: maquinaLabelByChip[slot.numChip] ?? "",
+        flowcells: CHIP_FC_SLOTS.map(() => null),
+      };
+      byChip.set(slot.numChip, chip);
+    }
+    const idx = slot.fc - 1;
+    if (idx >= 0 && idx < chip.flowcells.length) {
+      chip.flowcells[idx] = {
+        fc: slot.fc,
+        numBN: item.NumBN,
+        numLectura: item.NumLectura,
+        numLectMarc: item.NumLectMarc,
+      };
+    }
+  }
+  return [...byChip.values()].sort((a, b) => a.numChip - b.numChip);
 }
 
 function nextNumLectMarcFor(
@@ -818,7 +875,7 @@ function openPrintDialog(html: string) {
       return;
     }
     const doc = win.document;
-    if (!doc.body?.querySelector("table")) {
+    if (!doc.body || doc.body.childElementCount === 0) {
       return;
     }
     printStarted = true;
@@ -854,6 +911,76 @@ function openPrintDialog(html: string) {
 
   // Si onload no dispara (p. ej. contenido desde document.write), forzar impresión.
   setTimeout(triggerPrint, 400);
+}
+
+function printPteChipSchema(chips: PteChipLoadedChip[]) {
+  if (!chips.length) {
+    toast.error(i18n.t("actions.print.empty"));
+    return;
+  }
+  const fecha = new Date().toLocaleString(i18n.language.startsWith("en") ? "en-GB" : "es-ES");
+  const count = chips.reduce(
+    (n, chip) => n + chip.flowcells.filter((fc) => fc != null).length,
+    0
+  );
+  const cards = chips
+    .map((chip) => {
+      const cells = chip.flowcells
+        .map((cell, idx) => {
+          const fc = idx + 1;
+          const bn = cell ? String(cell.numBN) : "—";
+          return `<div class="fc${cell ? "" : " empty"}">
+            <span class="fc-lab">${escapeHtml(i18n.t("chips.fc.slot", { n: fc }))}</span>
+            <span class="fc-bn">${escapeHtml(bn)}</span>
+          </div>`;
+        })
+        .join("");
+      const name = chip.nombre || i18n.t("common.empty");
+      const maquina = chip.maquina
+        ? `<span class="maq">${escapeHtml(chip.maquina)}</span>`
+        : "";
+      return `<article class="chip">
+        <header>
+          <strong>#${escapeHtml(String(chip.numChip))}</strong>
+          <span>${escapeHtml(name)}</span>
+          ${maquina}
+        </header>
+        <div class="fcs">${cells}</div>
+      </article>`;
+    })
+    .join("");
+  const html = `<!DOCTYPE html>
+<html lang="${i18n.language.startsWith("en") ? "en" : "es"}">
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(i18n.t("actions.printChip.docTitle"))}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 16px 24px; color: #000; }
+    h1 { font-size: 16px; margin: 0 0 4px; }
+    p.meta { font-size: 11px; margin: 0 0 14px; color: #333; }
+    .grid { display: flex; flex-wrap: wrap; gap: 16px; }
+    .chip { border: 2px solid #000; border-radius: 8px; padding: 10px 12px; min-width: 260px; }
+    .chip header { display: flex; gap: 8px; align-items: baseline; margin-bottom: 8px; font-size: 13px; }
+    .chip header .maq { margin-left: auto; font-size: 12px; }
+    .fcs { display: flex; gap: 8px; }
+    .fc { flex: 1; border: 1.5px solid #000; border-radius: 6px; padding: 8px 6px; text-align: center; min-height: 64px; }
+    .fc.empty { border-style: dashed; color: #666; }
+    .fc-lab { display: block; font-size: 10px; margin-bottom: 4px; }
+    .fc-bn { display: block; font-size: 22px; font-weight: 700; }
+    @media print {
+      body { padding: 10px 16px; }
+      @page { margin: 12mm; size: landscape; }
+    }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(i18n.t("actions.printChip.heading"))}</h1>
+  <p class="meta">${escapeHtml(i18n.t("actions.printChip.meta", { fecha, count, chips: chips.length }))}</p>
+  <div class="grid">${cards}</div>
+</body>
+</html>`;
+  openPrintDialog(html);
 }
 
 function pickRowField(row: Record<string, unknown>, field: string): unknown {
@@ -1044,8 +1171,10 @@ function ActionsPage() {
   const [pteChipConfirmOpen, setPteChipConfirmOpen] = useState(false);
   const [pteChipCatalog, setPteChipCatalog] = useState<ChipCatalogo[]>([]);
   const [pteChipAsignaciones, setPteChipAsignaciones] = useState<ChipAsignacionRow[]>([]);
-  const [pteChipNumChip, setPteChipNumChip] = useState("");
-  const [pteChipFcByItem, setPteChipFcByItem] = useState<Record<string, number>>({});
+  const [pteChipAssignByItem, setPteChipAssignByItem] = useState<Record<string, ChipFcSlot>>({});
+  const [pteChipLoadedSchema, setPteChipLoadedSchema] = useState<PteChipLoadedChip[] | null>(null);
+  const [pteChipMaquinas, setPteChipMaquinas] = useState<MaquinaCatalogo[]>([]);
+  const [pteChipMaquinaByChip, setPteChipMaquinaByChip] = useState<Record<number, number>>({});
   const [savingPteChip, setSavingPteChip] = useState(false);
 
   useEffect(() => {
@@ -1069,7 +1198,7 @@ function ActionsPage() {
         setIsAdmin(false);
         return;
       }
-      setIsAdmin(profile?.role === "admin");
+      setIsAdmin(canEditData(profile?.role));
     }
 
     loadRole();
@@ -1581,15 +1710,46 @@ function ActionsPage() {
     setPteChipSelected(checked ? new Set(pteChipRowKeys) : new Set());
   };
 
-  const applyPteChipChoice = (numChip: number, items = selectedPteChipItems) => {
-    const libres = fcLibresParaChip(numChip, pteChipAsignaciones);
-    if (libres.length < items.length) {
+  const pteChipFreeNums = pteChipPanelsWithFree.map((panel) => Number(panel.chip.NumChip_D));
+
+  const pteChipAssignedNums = useMemo(() => {
+    const set = new Set<number>();
+    for (const slot of Object.values(pteChipAssignByItem)) {
+      if (slot?.numChip != null) set.add(slot.numChip);
+    }
+    return [...set].sort((a, b) => a - b);
+  }, [pteChipAssignByItem]);
+
+  const pteChipMissingMachine =
+    pteChipMaquinas.length > 0 &&
+    pteChipAssignedNums.some((numChip) => parseMaquinaCod(pteChipMaquinaByChip[numChip]) == null);
+
+  useEffect(() => {
+    if (!pteChipConfirmOpen || pteChipMaquinas.length === 0) return;
+    setPteChipMaquinaByChip((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const numChip of pteChipAssignedNums) {
+        if (parseMaquinaCod(next[numChip]) != null) continue;
+        const chip = pteChipCatalog.find((c) => Number(c.NumChip_D) === numChip);
+        const def = defaultMaquinaForChip(pteChipMaquinas, chip?.Id_Maquina);
+        if (def != null) {
+          next[numChip] = def;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [pteChipConfirmOpen, pteChipAssignedNums, pteChipMaquinas, pteChipCatalog]);
+
+  const applyPteChipFill = (preferFirst?: number, items = selectedPteChipItems) => {
+    const slots = collectFreeChipSlots(pteChipFreeNums, pteChipAsignaciones, preferFirst);
+    if (slots.length < items.length) {
       toast.error(
-        t("actions.toast.pteChipNotEnough", { free: libres.length, count: items.length })
+        t("actions.toast.pteChipNotEnough", { free: slots.length, count: items.length })
       );
     }
-    setPteChipNumChip(String(numChip));
-    setPteChipFcByItem(autoFillFcAssignments(items, libres));
+    setPteChipAssignByItem(autoFillChipAssignments(items.map(pteChipItemKey), slots));
   };
 
   const handleOpenPteChipLoad = () => {
@@ -1602,17 +1762,31 @@ function ActionsPage() {
       toast.error(t("actions.toast.pteChipNoChips"));
       return;
     }
-    setPteChipConfirmOpen(true);
-    const enough = pteChipCatalog.filter(
-      (chip) =>
-        fcLibresParaChip(Number(chip.NumChip_D), pteChipAsignaciones).length >= items.length
-    );
-    if (enough.length === 1) {
-      applyPteChipChoice(Number(enough[0].NumChip_D), items);
-    } else {
-      setPteChipNumChip("");
-      setPteChipFcByItem({});
+    const chipNums = pteChipCatalog
+      .map((chip) => Number(chip.NumChip_D))
+      .filter((n) => fcLibresParaChip(n, pteChipAsignaciones).length > 0);
+    const slots = collectFreeChipSlots(chipNums, pteChipAsignaciones);
+    setPteChipLoadedSchema(null);
+    const maqInit: Record<number, number> = {};
+    for (const chip of pteChipCatalog) {
+      const def = defaultMaquinaForChip(pteChipMaquinas, chip.Id_Maquina);
+      if (def != null) maqInit[Number(chip.NumChip_D)] = def;
     }
+    setPteChipMaquinaByChip(maqInit);
+    setPteChipConfirmOpen(true);
+    if (slots.length < items.length) {
+      toast.error(
+        t("actions.toast.pteChipNotEnough", { free: slots.length, count: items.length })
+      );
+    }
+    setPteChipAssignByItem(autoFillChipAssignments(items.map(pteChipItemKey), slots));
+  };
+
+  const closePteChipDialog = () => {
+    setPteChipConfirmOpen(false);
+    setPteChipAssignByItem({});
+    setPteChipLoadedSchema(null);
+    setPteChipMaquinaByChip({});
   };
 
   const handleCreatePteChip = async () => {
@@ -1621,32 +1795,42 @@ function ActionsPage() {
       toast.error(t("actions.toast.marcarNeedSelection"));
       return;
     }
-    const numChip = Number(pteChipNumChip);
-    const chip = pteChipCatalog.find((c) => Number(c.NumChip_D) === numChip) ?? null;
-    if (!chip) {
-      toast.error(t("actions.toast.pteChipNeedChip"));
-      return;
-    }
-    const libres = fcLibresParaChip(numChip, pteChipAsignaciones);
-    const usedInBatch = new Set<number>();
+    const usedInBatch = new Set<string>();
     for (const item of items) {
-      const key = pteChipLmKey(item.NumBN, item.NumLectura, item.NumLectMarc);
-      const fc = pteChipFcByItem[key];
-      if (fc == null) {
+      const key = pteChipItemKey(item);
+      const slot = pteChipAssignByItem[key];
+      if (slot == null) {
         toast.error(t("actions.toast.pteChipNeedFc"));
         return;
       }
-      if (!libres.includes(fc) || usedInBatch.has(fc)) {
-        toast.error(t("actions.toast.pteChipFcTaken", { fc }));
+      const slotId = chipFcSlotKey(slot);
+      const libres = fcLibresParaChip(slot.numChip, pteChipAsignaciones);
+      if (!libres.includes(slot.fc) || usedInBatch.has(slotId)) {
+        toast.error(t("actions.toast.pteChipFcTaken", { fc: slot.fc }));
         return;
       }
-      usedInBatch.add(fc);
+      usedInBatch.add(slotId);
+    }
+    const chipNumsLoaded = new Set(
+      items.map((item) => pteChipAssignByItem[pteChipItemKey(item)]?.numChip).filter((n) => n != null)
+    );
+    if (pteChipMaquinas.length > 0) {
+      for (const numChip of chipNumsLoaded) {
+        if (parseMaquinaCod(pteChipMaquinaByChip[numChip]) == null) {
+          toast.error(t("actions.toast.pteChipNeedMachine"));
+          return;
+        }
+      }
+    }
+    for (const item of items) {
+      const slot = pteChipAssignByItem[pteChipItemKey(item)];
+      if (!slot) continue;
       const yaAsignado = pteChipAsignaciones.some(
         (row) =>
           Number(row.NumBN_C) === item.NumBN &&
           Number(row.NumLectura_C) === item.NumLectura &&
           Number(row.NumLectMarc_C) === item.NumLectMarc &&
-          Number(row.NumChip) === numChip
+          Number(row.NumChip) === slot.numChip
       );
       if (yaAsignado) {
         toast.error(
@@ -1654,7 +1838,7 @@ function ActionsPage() {
             numBN: item.NumBN,
             numLectura: item.NumLectura,
             numLectMarc: item.NumLectMarc,
-            numChip,
+            numChip: slot.numChip,
           })
         );
         return;
@@ -1665,16 +1849,17 @@ function ActionsPage() {
     try {
       const results: Array<{ numBN: number; error: unknown }> = [];
       for (const item of items) {
-        const key = pteChipLmKey(item.NumBN, item.NumLectura, item.NumLectMarc);
-        const fc = pteChipFcByItem[key];
+        const slot = pteChipAssignByItem[pteChipItemKey(item)];
+        if (!slot) continue;
+        const chip = pteChipCatalog.find((c) => Number(c.NumChip_D) === slot.numChip);
         const { error } = await supabase.from("Chips").insert([
           {
             NumBN_C: item.NumBN,
             NumLectura_C: item.NumLectura,
             NumLectMarc_C: item.NumLectMarc,
-            NumChip: chip.NumChip_D,
-            Chip_Nombre: chip.Nombre_Chip ?? null,
-            FC: fc,
+            NumChip: slot.numChip,
+            Chip_Nombre: chip?.Nombre_Chip ?? null,
+            FC: slot.fc,
             Coment_Chip: null,
             Repetir_Chip: null,
           },
@@ -1690,20 +1875,47 @@ function ActionsPage() {
             total: items.length,
           })
         );
-      } else {
-        toast.success(
-          t("actions.toast.pteChipLoaded", {
-            count: items.length,
-            numChip: chip.NumChip_D,
+        setSavingPteChip(false);
+        return;
+      }
+      const maquinaLabelByChip: Record<number, string> = {};
+      const maquinaIdByChip = new Map<number, number>();
+      for (const numChip of chipNumsLoaded) {
+        const idMaq = parseMaquinaCod(pteChipMaquinaByChip[numChip]);
+        if (idMaq == null) continue;
+        const { error: maqErr } = await supabase
+          .from("DChips")
+          .update({ Id_Maquina: idMaq })
+          .eq("NumChip_D", numChip);
+        if (maqErr) throw maqErr;
+        const maq = pteChipMaquinas.find((m) => Number(m.Cod) === idMaq) ?? null;
+        maquinaLabelByChip[numChip] = formatMaquinaLabel(maq);
+        maquinaIdByChip.set(numChip, idMaq);
+      }
+      if (maquinaIdByChip.size > 0) {
+        setPteChipCatalog((prev) =>
+          prev.map((chip) => {
+            const idMaq = maquinaIdByChip.get(Number(chip.NumChip_D));
+            if (idMaq == null) return chip;
+            const maq = pteChipMaquinas.find((m) => Number(m.Cod) === idMaq) ?? null;
+            return { ...chip, Id_Maquina: idMaq, Apodo: maq?.Apodo ?? null };
           })
         );
       }
-      setPteChipConfirmOpen(false);
-      setPteChipSelected(new Set());
-      setPteChipNumChip("");
-      setPteChipFcByItem({});
+      const schema = buildPteChipLoadedSchema(
+        items,
+        pteChipAssignByItem,
+        pteChipCatalog,
+        maquinaLabelByChip
+      );
+      setPteChipLoadedSchema(schema);
+      toast.success(
+        t("actions.toast.pteChipLoaded", {
+          count: items.length,
+          chips: schema.length,
+        })
+      );
       setSavingPteChip(false);
-      await handleActionClick("pte-chip");
     } catch (err) {
       console.error(err);
       toast.error(t("actions.toast.pteChipLoadError"));
@@ -1884,8 +2096,8 @@ function ActionsPage() {
     setMarcarFecha("");
     setPteChipSelected(new Set());
     setPteChipConfirmOpen(false);
-    setPteChipNumChip("");
-    setPteChipFcByItem({});
+    setPteChipAssignByItem({});
+    setPteChipLoadedSchema(null);
     setMandarConfirmOpen(false);
     setMandarFecha("");
     exitHacerEditMode();
@@ -2173,6 +2385,7 @@ function ActionsPage() {
           { data: lmData, error: lmError },
           { data: chipsData, error: chipsError },
           { data: catalogData, error: catalogError },
+          { data: maqData, error: maqError },
         ] = await Promise.all([
           supabase
             .from("Lecturas_Marcado")
@@ -2185,8 +2398,9 @@ function ActionsPage() {
             .select("NumBN_C, NumLectura_C, NumLectMarc_C, NumChip, FC, Chip_Nombre, Repetir_Chip"),
           supabase
             .from("DChips")
-            .select("NumChip_D, Nombre_Chip")
+            .select("NumChip_D, Nombre_Chip, Id_Maquina")
             .order("NumChip_D", { ascending: true }),
+          supabase.from("DMaquinas").select("Cod, Apodo").order("Cod", { ascending: true }),
         ]);
 
         if (lmError) {
@@ -2204,8 +2418,22 @@ function ActionsPage() {
           toast.error(t("actions.toast.loadChips"));
           return;
         }
+        if (maqError) {
+          console.error("Error fetching máquinas:", maqError);
+          toast.error(t("actions.toast.loadChips"));
+          return;
+        }
 
-        setPteChipCatalog((catalogData || []) as ChipCatalogo[]);
+        const maquinas = ((maqData || []) as Record<string, unknown>[])
+          .map((row) => toMaquinaCatalogo(row))
+          .filter((row): row is MaquinaCatalogo => row != null);
+        setPteChipMaquinas(maquinas);
+        setPteChipCatalog(
+          ((catalogData || []) as ChipCatalogo[]).map((chip) => ({
+            ...chip,
+            Apodo: maquinas.find((m) => Number(m.Cod) === Number(chip.Id_Maquina))?.Apodo ?? null,
+          }))
+        );
         setPteChipAsignaciones((chipsData || []) as ChipAsignacionRow[]);
 
         const chipsByLm = new Map<string, any[]>();
@@ -2528,6 +2756,84 @@ function ActionsPage() {
                 </div>
                 {pteChipConfirmOpen ? (
                   <div className="bionapp-panel p-4 border border-slate-200 dark:border-slate-800">
+                    {pteChipLoadedSchema ? (
+                      <>
+                        <p className="text-sm font-medium mb-1">{t("actions.pteChipLoadedTitle")}</p>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {t("actions.pteChipLoadedHelp")}
+                        </p>
+                        <div className="bionapp-chip-grid max-h-[380px] overflow-y-auto mb-3">
+                          {pteChipLoadedSchema.map((chip) => (
+                            <div key={chip.numChip} className="bionapp-chip-card">
+                              <header className="bionapp-chip-card__header">
+                                <div className="bionapp-chip-card__title min-w-0">
+                                  <Badge variant="outline" className="shrink-0">
+                                    #{chip.numChip}
+                                  </Badge>
+                                  <span className="text-sm font-medium truncate" title={chip.nombre}>
+                                    {chip.nombre || t("common.empty")}
+                                  </span>
+                                </div>
+                                {chip.maquina ? (
+                                  <span className="text-xs text-muted-foreground shrink-0 truncate" title={chip.maquina}>
+                                    {chip.maquina}
+                                  </span>
+                                ) : null}
+                              </header>
+                              <div className="bionapp-chip-fc-grid">
+                                {chip.flowcells.map((cell, idx) => {
+                                  const fcNumber = idx + 1;
+                                  return (
+                                    <div
+                                      key={fcNumber}
+                                      className={
+                                        cell
+                                          ? "bionapp-chip-fc bionapp-chip-fc--preview"
+                                          : "bionapp-chip-fc"
+                                      }
+                                    >
+                                      <span className="bionapp-chip-fc__label">
+                                        {t("chips.fc.slot", { n: fcNumber })}
+                                      </span>
+                                      {cell ? (
+                                        <span className="bionapp-chip-fc__muestra">{cell.numBN}</span>
+                                      ) : (
+                                        <span className="bionapp-chip-fc__vacio">
+                                          {t("common.empty")}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            className="h-8 gap-2 bionapp-btn-green"
+                            onClick={() => printPteChipSchema(pteChipLoadedSchema)}
+                          >
+                            <Printer className="h-4 w-4" />
+                            {t("actions.pteChipPrintSchema")}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-2"
+                            onClick={() => {
+                              closePteChipDialog();
+                              void handleActionClick("pte-chip");
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                            {t("actions.pteChipClose")}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
                     {pteChipPanelsWithFree.length > 0 ? (
                       <p className="text-sm text-muted-foreground mb-3">
                         {t("actions.pteChipLoadHint", { count: selectedPteChipItems.length })}
@@ -2536,20 +2842,21 @@ function ActionsPage() {
                     {selectedPteChipItems.length > 0 && pteChipPanelsWithFree.length > 0 ? (
                       <ul className="mb-3 space-y-1.5">
                         {selectedPteChipItems.map((item) => {
-                          const itemKey = pteChipLmKey(item.NumBN, item.NumLectura, item.NumLectMarc);
-                          const numChip = Number(pteChipNumChip);
-                          const libres =
-                            Number.isFinite(numChip) && numChip > 0
-                              ? fcLibresParaChip(numChip, pteChipAsignaciones)
-                              : [];
-                          const taken = new Set(
-                            Object.entries(pteChipFcByItem)
-                              .filter(([k]) => k !== itemKey)
-                              .map(([, fc]) => fc)
+                          const itemKey = pteChipItemKey(item);
+                          const allSlots = collectFreeChipSlots(
+                            pteChipFreeNums,
+                            pteChipAsignaciones
                           );
-                          const current = pteChipFcByItem[itemKey];
-                          const options = CHIP_FC_SLOTS.filter(
-                            (fc) => libres.includes(fc) && (!taken.has(fc) || fc === current)
+                          const taken = new Set(
+                            Object.entries(pteChipAssignByItem)
+                              .filter(([k]) => k !== itemKey)
+                              .map(([, slot]) => chipFcSlotKey(slot))
+                          );
+                          const current = pteChipAssignByItem[itemKey];
+                          const options = allSlots.filter(
+                            (slot) =>
+                              !taken.has(chipFcSlotKey(slot)) ||
+                              (current != null && chipFcSlotKey(slot) === chipFcSlotKey(current))
                           );
                           return (
                             <li
@@ -2566,23 +2873,26 @@ function ActionsPage() {
                               <label className="inline-flex items-center gap-1">
                                 <span className="text-muted-foreground">{t("actions.col.fc")}</span>
                                 <select
-                                  value={current ?? ""}
+                                  value={current ? chipFcSlotKey(current) : ""}
                                   onChange={(e) => {
-                                    const raw = e.target.value;
-                                    setPteChipFcByItem((prev) => {
+                                    const parsed = parseChipFcSlotKey(e.target.value);
+                                    setPteChipAssignByItem((prev) => {
                                       const next = { ...prev };
-                                      if (raw === "") delete next[itemKey];
-                                      else next[itemKey] = Number(raw);
+                                      if (!parsed) delete next[itemKey];
+                                      else next[itemKey] = parsed;
                                       return next;
                                     });
                                   }}
                                   className={HACER_SELECT_CLASS}
-                                  disabled={savingPteChip || !pteChipNumChip}
+                                  disabled={savingPteChip}
                                 >
                                   <option value="">{t("common.selectPlaceholder")}</option>
-                                  {options.map((fc) => (
-                                    <option key={fc} value={fc}>
-                                      {t("chips.fc.slot", { n: fc })}
+                                  {options.map((slot) => (
+                                    <option key={chipFcSlotKey(slot)} value={chipFcSlotKey(slot)}>
+                                      {t("actions.pteChipSlotOption", {
+                                        numChip: slot.numChip,
+                                        fc: slot.fc,
+                                      })}
                                     </option>
                                   ))}
                                 </select>
@@ -2611,10 +2921,53 @@ function ActionsPage() {
                         </Button>
                       </div>
                     ) : (
+                      <>
+                    {pteChipMaquinas.length > 0 && pteChipAssignedNums.length > 0 ? (
+                      <div className="mb-3 space-y-2">
+                        <p className="text-sm font-medium">{t("actions.pteChipMachineTitle")}</p>
+                        {pteChipAssignedNums.map((numChip) => {
+                          const cat = pteChipCatalog.find((c) => Number(c.NumChip_D) === numChip);
+                          return (
+                            <label
+                              key={numChip}
+                              className="flex flex-wrap items-center gap-2 text-xs"
+                            >
+                              <span className="min-w-[160px]">
+                                {t("actions.pteChipMachineChip", { num: numChip })}
+                                {cat?.Nombre_Chip ? ` · ${cat.Nombre_Chip}` : ""}
+                              </span>
+                              <select
+                                value={pteChipMaquinaByChip[numChip] ?? ""}
+                                onChange={(e) => {
+                                  const id = parseMaquinaCod(e.target.value);
+                                  setPteChipMaquinaByChip((prev) => {
+                                    const next = { ...prev };
+                                    if (id == null) delete next[numChip];
+                                    else next[numChip] = id;
+                                    return next;
+                                  });
+                                }}
+                                className={HACER_SELECT_CLASS}
+                                disabled={savingPteChip}
+                              >
+                                <option value="">{t("common.selectPlaceholder")}</option>
+                                {pteChipMaquinas.map((maq) => (
+                                  <option key={maq.Cod} value={maq.Cod}>
+                                    {formatMaquinaLabel(maq)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                       <div className="bionapp-chip-grid max-h-[380px] overflow-y-auto mb-3">
                         {pteChipPanelsWithFree.map(({ chip, flowcells }) => {
                           const numChip = Number(chip.NumChip_D);
-                          const selected = String(numChip) === pteChipNumChip;
+                          const selected = Object.values(pteChipAssignByItem).some(
+                            (slot) => slot.numChip === numChip
+                          );
                           const libres = fcLibresParaChip(numChip, pteChipAsignaciones);
                           return (
                             <button
@@ -2624,7 +2977,7 @@ function ActionsPage() {
                                 "bionapp-chip-card bionapp-chip-card--pick",
                                 selected && "bionapp-chip-card--selected"
                               )}
-                              onClick={() => applyPteChipChoice(numChip)}
+                              onClick={() => applyPteChipFill(numChip)}
                               disabled={savingPteChip}
                             >
                               <header className="bionapp-chip-card__header">
@@ -2640,20 +2993,22 @@ function ActionsPage() {
                                   </span>
                                 </div>
                                 <span className="text-xs text-muted-foreground shrink-0">
-                                  {formatFcLibresLabel(libres)}
+                                  {(() => {
+                                    const maq = pteChipMaquinas.find(
+                                      (m) => Number(m.Cod) === pteChipMaquinaByChip[numChip]
+                                    );
+                                    const fcLabel = formatFcLibresLabel(libres);
+                                    return maq?.Apodo ? `${maq.Apodo} · ${fcLabel}` : fcLabel;
+                                  })()}
                                 </span>
                               </header>
                               <div className="bionapp-chip-fc-grid">
                                 {flowcells.map((row, idx) => {
                                   const fcNumber = idx + 1;
-                                  const previewBn = selected
-                                    ? selectedPteChipItems.find(
-                                        (it) =>
-                                          pteChipFcByItem[
-                                            pteChipLmKey(it.NumBN, it.NumLectura, it.NumLectMarc)
-                                          ] === fcNumber
-                                      )?.NumBN
-                                    : undefined;
+                                  const previewBn = selectedPteChipItems.find((it) => {
+                                    const slot = pteChipAssignByItem[pteChipItemKey(it)];
+                                    return slot?.numChip === numChip && slot.fc === fcNumber;
+                                  })?.NumBN;
                                   if (row != null && row.NumBN_C != null) {
                                     return (
                                       <div
@@ -2694,6 +3049,7 @@ function ActionsPage() {
                           );
                         })}
                       </div>
+                      </>
                     )}
                     <div className="flex flex-wrap items-center gap-2">
                       {pteChipPanelsWithFree.length > 0 ? (
@@ -2703,12 +3059,9 @@ function ActionsPage() {
                         onClick={() => void handleCreatePteChip()}
                         disabled={
                           savingPteChip ||
-                          !pteChipNumChip ||
+                          pteChipMissingMachine ||
                           selectedPteChipItems.some(
-                            (item) =>
-                              pteChipFcByItem[
-                                pteChipLmKey(item.NumBN, item.NumLectura, item.NumLectMarc)
-                              ] == null
+                            (item) => pteChipAssignByItem[pteChipItemKey(item)] == null
                           )
                         }
                       >
@@ -2724,13 +3077,15 @@ function ActionsPage() {
                         size="sm"
                         variant="outline"
                         className="h-8 gap-2"
-                        onClick={() => setPteChipConfirmOpen(false)}
+                        onClick={closePteChipDialog}
                         disabled={savingPteChip}
                       >
                         <X className="h-4 w-4" />
                         {t("actions.cancel")}
                       </Button>
                     </div>
+                      </>
+                    )}
                   </div>
                 ) : null}
               </div>

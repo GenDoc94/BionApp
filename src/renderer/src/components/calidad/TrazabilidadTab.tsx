@@ -59,6 +59,7 @@ export default function TrazabilidadTab() {
       lmRes,
       chipsRes,
       dchipsRes,
+      maqRes,
     ] = await Promise.all([
       supabase.from("Envios").select("*"),
       supabase.from("Envio_Cajas").select("*"),
@@ -70,7 +71,8 @@ export default function TrazabilidadTab() {
       supabase.from("Lectura").select("NumBN_L, NumLectura"),
       supabase.from("Lecturas_Marcado").select("NumBN_LM, NumLectura_LM, NumLectMarc, Id_LtM, Id_LtMm"),
       supabase.from("Chips").select("NumBN_C, NumLectura_C, NumLectMarc_C, NumChip, FC"),
-      supabase.from("DChips").select("NumChip_D, Nombre_Chip, Id_LtC"),
+      supabase.from("DChips").select("NumChip_D, Nombre_Chip, Id_LtC, Id_Maquina"),
+      supabase.from("DMaquinas").select("Cod, Apodo"),
     ]);
     const err =
       envRes.error ||
@@ -83,7 +85,8 @@ export default function TrazabilidadTab() {
       lecturasRes.error ||
       lmRes.error ||
       chipsRes.error ||
-      dchipsRes.error;
+      dchipsRes.error ||
+      maqRes.error;
     if (err) {
       console.error(err);
       toast.error(t("trazabilidad.toast.loadError"));
@@ -117,7 +120,14 @@ export default function TrazabilidadTab() {
         (lecturasRes.data || []) as Record<string, unknown>[],
         (lmRes.data || []) as Record<string, unknown>[],
         (chipsRes.data || []) as Record<string, unknown>[],
-        (dchipsRes.data || []) as Record<string, unknown>[]
+        ((dchipsRes.data || []) as Record<string, unknown>[]).map((d) => {
+          const idMaq = Number(d.Id_Maquina);
+          const maq = (maqRes.data || []).find((m) => Number((m as { Cod?: unknown }).Cod) === idMaq) as
+            | { Apodo?: unknown }
+            | undefined;
+          const apodo = String(maq?.Apodo ?? d.Apodo ?? "").trim();
+          return apodo ? { ...d, Apodo: apodo } : d;
+        })
       )
     );
     setLoading(false);
@@ -424,6 +434,12 @@ function ChipLeaf({ chip }: { chip: TrazabilidadChip }) {
         <span className="text-muted-foreground font-normal">
           {" "}
           · {t("trazabilidad.lnChip", { ln: chip.loteChipLn })}
+        </span>
+      ) : null}
+      {chip.maquinaApodo ? (
+        <span className="text-muted-foreground font-normal">
+          {" "}
+          · {t("trazabilidad.maquina", { name: chip.maquinaApodo })}
         </span>
       ) : null}
     </button>

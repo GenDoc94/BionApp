@@ -44,6 +44,7 @@
   },
   "role": {
     "admin": "Administrator",
+    "tel": "TEL",
     "user": "User",
     "unassigned": "Unassigned"
   },
@@ -60,7 +61,7 @@
     "mismatch": "The codes do not match",
     "continue": "Continue",
     "preparing": "Preparing…",
-    "remember": "Write down the master code; it cannot be changed.",
+    "remember": "Write down the master code. An administrator can change it later in Options → Profile.",
     "languageHint": "You can also choose the interface language."
   },
   "login": {
@@ -91,7 +92,7 @@
     "email": "Email",
     "password": "Password",
     "role": "Role",
-    "roleHelp": "user can only view samples; admin can add new samples.",
+    "roleHelp": "User: view only. TEL: can enter and edit data, without catalogs or export. Administrator: full access.",
     "adminCode": "Master code",
     "adminCodePlaceholder": "Private code",
     "creating": "Creating user...",
@@ -157,7 +158,8 @@
       "export": "Export",
       "appearance": "Appearance",
       "manual": "Manual",
-      "authorship": "Authorship"
+      "authorship": "Authorship",
+      "log": "Log"
     },
     "setup": {
       "continue": "Continue to the database",
@@ -169,7 +171,7 @@
     },
     "restricted": {
       "title": "Restricted access",
-      "catalogs": "You need the admin role to edit the DMuestra, DDx and DCajas catalogs.",
+      "catalogs": "You need the admin role to edit the DMuestra, DDx, DCajas catalogs and tags.",
       "tags": "You need the admin role to create and edit tags."
     },
     "vars": {
@@ -194,7 +196,12 @@
         "extraido": "Extraction",
         "marcado": "Labeling",
         "chip": "Chips"
-      }
+      },
+      "machines": "Machines",
+      "addMachine": "Add machine",
+      "machineHint": "Nickname (e.g. Saphyr1, Saphyr2…)",
+      "machinePlaceholder": "Saphyr1",
+      "machineDeleteHint": "Only the last machine (highest Cod) can be deleted. Chips assigned to it will be left without a machine."
     },
     "list": {
       "current": "Current list"
@@ -205,7 +212,8 @@
       "boxName": "Name",
       "boxTipo": "Type",
       "actions": "Actions",
-      "name": "Name"
+      "name": "Name",
+      "nickname": "Nickname"
     },
     "empty": {
       "values": "No values."
@@ -232,6 +240,7 @@
       "deleteCatalog": "Error deleting from the catalog",
       "addDx": "Error adding diagnosis",
       "addCaja": "Error adding the box code",
+      "addMachine": "Error adding the machine",
       "addTag": "Error adding tag",
       "saveTag": "Error saving tag",
       "deleteTag": "Error deleting tag"
@@ -249,7 +258,41 @@
     "profile": {
       "email": "Email",
       "role": "Role",
-      "roleLocked": "The role cannot be changed once assigned."
+      "roleLocked": "An administrator assigns the role.",
+      "users": "Users",
+      "usersHelp": "Change each account’s role. Administrator has full access. TEL can enter and edit data, without Variables, statistics, export or the change log.",
+      "roleUpdated": "Role of {{email}} updated",
+      "masterCode": "Master code",
+      "masterCodeHelp": "Used to create users and to change the data folder. It is never shown: enter the current code and the new one.",
+      "masterCodeCurrent": "Current code",
+      "masterCodeNew": "New code (min. 4)",
+      "masterCodeConfirm": "Repeat new code",
+      "masterCodeSave": "Change master code",
+      "masterCodeUpdated": "Master code updated",
+      "masterCodeIncomplete": "Fill in the current code, the new one and the confirmation"
+    },
+    "log": {
+      "title": "Change log",
+      "help": "Each add, change or delete in the database is listed here with date, user and the machine IP. The log is read-only.",
+      "search": "Search the log…",
+      "refresh": "Refresh",
+      "empty": "No changes recorded yet.",
+      "noMatches": "No entries match the search.",
+      "loadError": "Could not load the log",
+      "col": {
+        "when": "Date and time",
+        "user": "User",
+        "origin": "IP / host",
+        "action": "Action",
+        "table": "Table",
+        "detail": "Detail"
+      },
+      "action": {
+        "insert": "Added",
+        "update": "Changed",
+        "delete": "Deleted",
+        "upsert": "Updated"
+      }
     },
     "theme": {
       "title": "Interface theme",
@@ -373,11 +416,11 @@
       "calidad": "**Quality**: shipments (BIO catalog code and lot LN), stock, lot catalog, traceability and air filters.",
       "lotes": "**Lots**: catalog of extraction, labeling, membrane and chip lots, with the linked samples, readings and chips.",
       "calcs": "**Calculations**: lab utilities (e.g. dilutions) from already recorded data.",
-      "options": "**Options**: profile, variables, tags, statistics, documents, export, appearance and manual."
+      "options": "**Options**: profile, variables (sample types, diagnoses, BIO boxes, machines and tags), statistics, documents, export, appearance, manual, authorship and log."
     },
     "roles": {
       "title": "Roles and users",
-      "body": "The user role is for viewing samples. The admin role can add samples and manage catalogs and tags. New users are created with the **master code** set when configuring the app."
+      "body": "The **User** role is for viewing samples. The **TEL** role can enter and edit data, but does not see Variables, statistics, export, the change log or the user list. The **Administrator** role has full access, including changing roles and the **master code** in Profile. New users are created with that code."
     },
     "edit": {
       "title": "Edit and save",
@@ -461,7 +504,8 @@
       "lots": "Lots",
       "shipments": "Shipments and stock",
       "samples": "Samples",
-      "users": "Users"
+      "users": "Users",
+      "log": "Log"
     },
     "tablesIncluded": "Tables included: {{tables}}.",
     "toast": {
@@ -666,7 +710,9 @@
     "number": "Chip no.",
     "name": "Chip name",
     "add": "Add chip",
-    "searchPlaceholder": "Search by chip no., name, LN or sample no....",
+    "searchPlaceholder": "Search by chip no., name, machine, LN or sample no....",
+    "machine": "Machine",
+    "noMachines": "There are no machines. Add them in Options → Variables.",
     "searchCount": "{{filtered}} of {{total}} chips",
     "clear": "Clear",
     "empty": "There are no chips in the catalog. Add the first one with the form above.",
@@ -713,7 +759,7 @@
   },
   "envios": {
     "loading": "Loading shipments...",
-    "help": "Each shipment contains boxes. Pick the BIO code from the catalog and the LN from Lots (labeling → labeling LNs; extraction → extract; chips → chips). The same BIO and LN can appear in several shipments.",
+    "help": "Each shipment contains kits. A kit is one BIO-XXXXX with 3 physical boxes (ambient, fridge and freezer). Chip packs are counted as boxes, not kits. Pick the BIO code from the catalog and the LN from Lots (labeling → labeling LNs; extraction → extract; chips → chips).",
     "salesOrder": "Sales order",
     "salesOrderPlaceholder": "e.g. WR00001234",
     "exists": "Already exists",
@@ -727,12 +773,14 @@
     "save": "Save shipment",
     "cancel": "Cancel",
     "delete": "Delete shipment",
-    "confirmDelete": "Delete shipment {{so}} and its boxes?",
+    "confirmDelete": "Delete shipment {{so}} and its kits?",
     "searchPlaceholder": "Search by sales order, BIO, LN or date...",
     "empty": "There are no shipments. Add the first one with the form above.",
     "noMatch": "No shipment matches the search.",
     "boxesCount": "{{count}} boxes",
-    "noBoxes": "This shipment has no boxes yet.",
+    "kitsCount": "{{count}} kits",
+    "countBoth": "{{kits}} kits · {{cajas}} boxes",
+    "noBoxes": "This shipment has no kits or boxes yet.",
     "assignBio": "BIO code",
     "assignLn": "Catalog LN",
     "cajaTipo": {
@@ -745,23 +793,28 @@
     "boxName": "Kit name",
     "boxNamePlaceholder": "Bionano Prep DLS-G2 Labeling Kit (24 Reactions)",
     "qty": "Boxes",
+    "qtyKits": "Kits",
     "addBox": "Add boxes",
+    "addKit": "Add kits",
     "deleteBox": "Remove line",
     "boxQty": "{{count}} boxes",
+    "kitQty": "{{count}} kits",
     "toast": {
       "loadError": "Error loading shipments",
       "needSalesOrder": "Enter the sales order",
       "needBio": "Select a BIO code",
       "needLot": "Select an LN from the Lots catalog",
       "needQty": "Enter how many boxes (at least 1)",
+      "needQtyKits": "Enter how many kits (at least 1)",
       "added": "Shipment added",
       "addError": "Error adding the shipment",
       "duplicate": "That sales order already exists",
       "duplicateCaja": "That LN is already in this shipment",
       "cajaAdded": "Boxes added to the shipment",
-      "cajaDeleted": "Box line deleted",
-      "cajaUpdated": "Box count updated",
-      "cajaError": "Error saving the boxes",
+      "kitAdded": "Kits added to the shipment",
+      "cajaDeleted": "Line deleted",
+      "cajaUpdated": "Quantity updated",
+      "cajaError": "Error saving the line",
       "updated": "Shipment updated",
       "updateError": "Error saving the shipment",
       "deleted": "Shipment deleted"
@@ -769,8 +822,8 @@
   },
   "stock": {
     "loading": "Loading stock...",
-    "help": "Each BIO code groups its LNs. The same BIO and LN can arrive in several shipments: you see the boxes of each shipment. Location is free text per BIO+LN.",
-    "searchPlaceholder": "Search by BIO, name, LN, shipment or location...",
+    "help": "Each BIO code groups its LNs. Extraction and labeling kits split into 3 sub-boxes: XXXXX-1 ambient (15-30 °C), XXXXX-2 fridge (2-5 °C) and XXXXX-3 freezer (−20 °C). Location is per sub-box; remaining is the number of kits. Chip packs are not split.",
+    "searchPlaceholder": "Search by BIO, sub-box, LN, shipment or location...",
     "empty": "There are no boxes in shipments yet. Add them on the Shipments tab.",
     "noMatch": "No stock matches the search.",
     "bio": "BIO",
@@ -779,7 +832,15 @@
     "place": "Where they are",
     "placePlaceholder": "Fridge, shelf…",
     "bioTotal": "{{count}} boxes · {{lns}} LN",
+    "bioTotalKits": "{{count}} kits ({{subs}} sub-boxes) · {{lns}} LN",
+    "remainingKits": "Remaining (kits)",
+    "temp": {
+      "ambiente": "Ambient 15-30 °C",
+      "nevera": "Fridge 2-5 °C",
+      "congelador": "Freezer −20 °C"
+    },
     "envioTip": "{{so}} · {{count}} boxes · arrived {{date}}",
+    "envioTipKits": "{{so}} · {{count}} kits · arrived {{date}}",
     "envioUnknown": "Shipment",
     "total": "Total boxes",
     "totalValue": "{{count}} ({{envios}} shipments)",
@@ -815,6 +876,7 @@
     "lnMarcado": "Labeling LN {{ln}}",
     "lnMembrana": "Membrane LN {{ln}}",
     "lnChip": "Chip LN {{ln}}",
+    "maquina": "Machine {{name}}",
     "chipNode": "Chip #{{num}} {{name}} · FC {{fc}}",
     "toast": {
       "loadError": "Error loading traceability"
@@ -1009,9 +1071,22 @@
     "marcarSelected": "{{count}} selected",
     "pteChipLoad": "Load onto chip",
     "pteChipLoadConfirm": "Load",
-    "pteChipLoadHint": "Pick a chip with free FC slots. Each chip has 3 FCs; they are assigned in order to {{count}} labeled reading(s).",
+    "pteChipLoadHint": "Free FC slots on available chips are assigned in order to {{count}} labeled reading(s). Each chip has 3 FCs; extra readings go onto the next chip. Click a chip to start filling from it.",
+    "pteChipMachineTitle": "Which machine is each chip loaded on?",
+    "pteChipMachineChip": "Chip #{{num}}",
+    "pteChipMachineNone": "— No machine —",
     "pteChipQueueItem": "BN {{numBN}} · Reading {{numLectura}} · LM {{numLectMarc}}",
+    "pteChipSlotOption": "Chip #{{numChip}} · FC {{fc}}",
+    "pteChipLoadedTitle": "Load ready to pipette",
+    "pteChipLoadedHelp": "This is the layout: which BN goes in each FC. Print it to take to the bench.",
+    "pteChipPrintSchema": "Print layout",
+    "pteChipClose": "Close",
     "pteChipGoCreate": "Create chip",
+    "printChip": {
+      "docTitle": "Chip load layout",
+      "heading": "Chip load layout",
+      "meta": "{{fecha}} · {{count}} reading(s) on {{chips}} chip(s)"
+    },
     "leerExtraidoEditing": "Editing {{count}} reading(s). Mean and CV are previewed when left, center and right are filled; they are confirmed on save.",
     "preview": {
       "lm": "Preview while typing Izq_LM and Dcha_LM (confirmed on save)",
@@ -1081,11 +1156,12 @@
       "pteChipNoChips": "There are no chips in the catalog. Create them in Chips.",
       "pteChipNoFree": "No chip has free FC slots",
       "pteChipNeedChip": "Select a chip",
-      "pteChipNeedFc": "Assign an FC to each labeled reading",
-      "pteChipFcTaken": "FC {{fc}} is already used in this load",
-      "pteChipNotEnough": "This chip only has {{free}} free slot(s) and {{count}} labeled reading(s) are selected",
+      "pteChipNeedFc": "Assign a slot (chip and FC) to each labeled reading",
+      "pteChipNeedMachine": "Choose the machine for each chip you are loading",
+      "pteChipFcTaken": "That FC {{fc}} slot is already used in this load",
+      "pteChipNotEnough": "{{count}} labeled reading(s) and only {{free}} free FC slot(s) in total",
       "pteChipAlready": "BN {{numBN}} R{{numLectura}} LM{{numLectMarc}} is already on chip #{{numChip}}",
-      "pteChipLoaded": "{{count}} labeled reading(s) loaded onto chip #{{numChip}}",
+      "pteChipLoaded": "{{count}} labeled reading(s) loaded onto {{chips}} chip(s)",
       "pteChipLoadError": "Error loading onto chip",
       "sendToRead": "{{count}} sample(s) sent to read",
       "sendToReadNeedDate": "Select the extraction date",
@@ -1258,7 +1334,15 @@
       "passwordShort": "Password is too short",
       "noAdminCode": "There is no master code in this folder. Set it during initial setup.",
       "badAdminCode": "Incorrect master code",
-      "userExists": "A user with that email already exists"
+      "userExists": "A user with that email already exists",
+      "userNotFound": "User not found",
+      "lastAdmin": "At least one administrator must remain",
+      "adminOnlyUsers": "Only the administrator can view users",
+      "adminOnlyRoles": "Only the administrator can change roles",
+      "adminOnlyLog": "Only the administrator can view the change log",
+      "adminOnlyExport": "Only the administrator can export",
+      "adminOnlyMasterCode": "Only the administrator can change the master code",
+      "adminCodeSame": "The new master code must be different"
     }
   }
 }

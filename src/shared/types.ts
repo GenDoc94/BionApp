@@ -1,4 +1,4 @@
-export type Role = 'user' | 'admin'
+export type Role = 'user' | 'admin' | 'tel'
 
 export type ExportFormat = 'xlsx' | 'json' | 'sqlite'
 

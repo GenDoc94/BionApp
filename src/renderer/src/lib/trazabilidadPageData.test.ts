@@ -38,7 +38,7 @@ const catalog: TrazabilidadCatalogo = {
   lecturas: [{ NumBN_L: 253, NumLectura: 1 }],
   lms: [{ NumBN_LM: 253, NumLectura_LM: 1, NumLectMarc: 1, Id_LtM: 20, Id_LtMm: null }],
   chips: [{ NumBN_C: 253, NumLectura_C: 1, NumLectMarc_C: 1, NumChip: 5, FC: 2 }],
-  dchips: [{ NumChip_D: 5, Nombre_Chip: "C5", Id_LtC: 30 }],
+  dchips: [{ NumChip_D: 5, Nombre_Chip: "C5", Id_LtC: 30, Id_Maquina: 1, Apodo: "Saphyr1" }],
 }
 
 describe("buildArbolEnvio", () => {
@@ -58,6 +58,10 @@ describe("buildArbolMuestra", () => {
     expect(tree?.posiblesEnvios.map((e) => e.Sales_Order)).toEqual(["WR00004939", "WR00005007"])
     expect(tree?.lotes[0]?.muestras).toHaveLength(1)
     expect(tree?.lotes[0]?.muestras[0]?.lecturas[0]?.lms[0]?.loteMarcadoLn).toBe("LN-M")
+    expect(tree?.lotes[0]?.muestras[0]?.lecturas[0]?.lms[0]?.chips[0]).toMatchObject({
+      numChip: 5,
+      maquinaApodo: "Saphyr1",
+    })
   })
 })
 

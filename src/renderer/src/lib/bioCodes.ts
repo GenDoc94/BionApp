@@ -37,3 +37,9 @@ export function sameLn(a: string, b: string): boolean {
 export function stockKey(bio: string, ln: string): string {
   return `${normalizeBioCode(bio)}::${String(ln ?? "").trim().toLowerCase()}`
 }
+
+/** BIO-80046 + sufijo 1 → 80046-1 (etiqueta de subcaja de temperatura). */
+export function subcajaCode(bio: string, sufijo: 1 | 2 | 3): string {
+  const pn = bioToPn(bio)
+  return pn ? `${pn}-${sufijo}` : ""
+}

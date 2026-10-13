@@ -16,6 +16,7 @@ import {
   type LoteTipo,
 } from "../../lib/lotesPageData";
 import {
+  cajaTieneSubcajas,
   findDCaja,
   lotAssignKey,
   lotsForCaja,
@@ -24,9 +25,10 @@ import {
   sortDCajas,
   type DCajaRow,
 } from "../../lib/dCajas";
+import { catalogTiposFromRows } from "../../lib/stockPageData";
 import {
   cajasDeEnvio,
-  countCajasEnvio,
+  countEnvioKitsYCajas,
   filterEnvios,
   findDuplicateCaja,
   findDuplicateEnvio,
@@ -144,6 +146,7 @@ export default function EnviosTab() {
     () => filterEnvios(envios, searchQuery, cajas),
     [envios, searchQuery, cajas]
   );
+  const tipoByBio = useMemo(() => catalogTiposFromRows(dcajas), [dcajas]);
   const duplicateEnvio = useMemo(
     () => findDuplicateEnvio(envios, salesOrder),
     [envios, salesOrder]
@@ -240,7 +243,9 @@ export default function EnviosTab() {
     }
     const qty = Number(numCajas);
     if (!Number.isInteger(qty) || qty < 1) {
-      toast.error(t("envios.toast.needQty"));
+      toast.error(
+        t(cajaTieneSubcajas(selectedCaja.Tipo) ? "envios.toast.needQtyKits" : "envios.toast.needQty")
+      );
       return;
     }
     if (findDuplicateCaja(cajas, envioId, selectedLot.LN)) {
@@ -259,7 +264,9 @@ export default function EnviosTab() {
         },
       ]);
       if (error) throw error;
-      toast.success(t("envios.toast.cajaAdded"));
+      toast.success(
+        t(cajaTieneSubcajas(selectedCaja.Tipo) ? "envios.toast.kitAdded" : "envios.toast.cajaAdded")
+      );
       setAssignLotKey("");
       setNumCajas("1");
       await load();
@@ -477,7 +484,11 @@ export default function EnviosTab() {
             const editing = editingId === envio.id;
             const open = openId === envio.id || editing;
             const lines = cajasDeEnvio(cajas, envio.id);
-            const nCajas = countCajasEnvio(cajas, envio.id);
+            const { kits: nKits, cajas: nChipCajas } = countEnvioKitsYCajas(
+              cajas,
+              envio.id,
+              tipoByBio
+            );
             return (
               <div key={envio.id} id={`envio-card-${envio.id}`} className="bionapp-panel p-4">
                 <div className="flex flex-wrap items-start gap-2">
@@ -579,7 +590,11 @@ export default function EnviosTab() {
                             : t("common.empty")}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {t("envios.boxesCount", { count: nCajas })}
+                          {nKits > 0 && nChipCajas > 0
+                            ? t("envios.countBoth", { kits: nKits, cajas: nChipCajas })
+                            : nChipCajas > 0
+                              ? t("envios.boxesCount", { count: nChipCajas })
+                              : t("envios.kitsCount", { count: nKits })}
                         </span>
                       </button>
                       <Button
@@ -601,7 +616,11 @@ export default function EnviosTab() {
                       <p className="text-xs text-slate-400">{t("envios.noBoxes")}</p>
                     ) : (
                       <ul className="space-y-1.5">
-                        {lines.map((caja) => (
+                        {lines.map((caja) => {
+                          const lineAsKit = cajaTieneSubcajas(
+                            findDCaja(dcajas, caja.Codigo_BIO)?.Tipo
+                          );
+                          return (
                           <li
                             key={caja.id}
                             className="flex flex-wrap items-center gap-2 text-sm rounded-md border px-2 py-1.5"
@@ -631,7 +650,9 @@ export default function EnviosTab() {
                             {editing ? (
                               <>
                                 <label className="ml-auto flex items-center gap-1">
-                                  <span className="text-xs text-muted-foreground">{t("envios.qty")}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {lineAsKit ? t("envios.qtyKits") : t("envios.qty")}
+                                  </span>
                                   <Input
                                     type="number"
                                     min={1}
@@ -660,11 +681,14 @@ export default function EnviosTab() {
                               </>
                             ) : (
                               <span className="ml-auto text-muted-foreground">
-                                {t("envios.boxQty", { count: caja.Num_Cajas })}
+                                {t(lineAsKit ? "envios.kitQty" : "envios.boxQty", {
+                                  count: caja.Num_Cajas,
+                                })}
                               </span>
                             )}
                           </li>
-                        ))}
+                          );
+                        })}
                       </ul>
                     )}
                     {editing ? (
@@ -721,7 +745,9 @@ export default function EnviosTab() {
                         </select>
                       </label>
                       <label className="w-[88px]">
-                        <span className="block text-xs text-muted-foreground mb-1">{t("envios.qty")}</span>
+                        <span className="block text-xs text-muted-foreground mb-1">
+                          {cajaTieneSubcajas(selectedCaja?.Tipo) ? t("envios.qtyKits") : t("envios.qty")}
+                        </span>
                         <Input
                           type="number"
                           min={1}
@@ -738,7 +764,7 @@ export default function EnviosTab() {
                         disabled={savingCaja || !assignBio || !assignLotKey || duplicateCaja != null}
                       >
                         <Plus className="h-4 w-4" />
-                        {t("envios.addBox")}
+                        {cajaTieneSubcajas(selectedCaja?.Tipo) ? t("envios.addKit") : t("envios.addBox")}
                       </Button>
                       {dcajas.length === 0 ? (
                         <p className="basis-full text-xs text-amber-700 dark:text-amber-400">

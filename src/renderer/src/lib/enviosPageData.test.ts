@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   attachEnvioSalesOrders,
   countCajasEnvio,
+  countEnvioKitsYCajas,
   filterEnvios,
   findDuplicateCaja,
   findDuplicateEnvio,
@@ -65,6 +66,20 @@ describe("cajas and lots of a shipment", () => {
     expect(countCajasEnvio(cajas, 8)).toBe(6)
     expect(lotesDeEnvio(lots, 8, cajas).marcado.map((l) => l.LN)).toEqual(["111"])
     expect(lotesDeEnvio(lots, 8, cajas).chip).toEqual([])
+  })
+
+  it("counts kits vs chip boxes", () => {
+    const mixed: EnvioCajaRow[] = [
+      ...cajas,
+      { id: 3, idEnvio: 8, Codigo_BIO: "BIO-80066", Nombre: "Chip", LN: "333", Num_Cajas: 2 },
+    ]
+    expect(
+      countEnvioKitsYCajas(mixed, 8, {
+        "BIO-80117": "marcado",
+        "BIO-80118": "extraido",
+        "BIO-80066": "chip",
+      })
+    ).toEqual({ kits: 6, cajas: 2 })
   })
 
   it("filters shipments by box LN or BIO", () => {

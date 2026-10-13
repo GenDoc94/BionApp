@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
+import { Label } from "../components/ui/label";
 import { supabase } from "../lib/supabaseClient";
 import { toast } from "sonner";
 import SubpageShell from "../components/SubpageShell";
@@ -25,6 +26,13 @@ import {
   type LoteRow,
 } from "../lib/lotesPageData";
 import LoteLnField from "../components/LoteLnField";
+import {
+  defaultMaquinaForChip,
+  formatMaquinaLabel,
+  parseMaquinaCod,
+  toMaquinaCatalogo,
+  type MaquinaCatalogo,
+} from "../lib/maquinas";
 import { Cpu, Plus, Save, Search, SquarePen, Trash2, X } from "lucide-react";
 
 function ChipPage() {
@@ -33,14 +41,17 @@ function ChipPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [chips, setChips] = useState<ChipCatalogo[]>([]);
   const [lotesChip, setLotesChip] = useState<LoteRow[]>([]);
+  const [maquinas, setMaquinas] = useState<MaquinaCatalogo[]>([]);
   const [asignaciones, setAsignaciones] = useState<ChipAsignacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [nextChipNum, setNextChipNum] = useState(1);
   const [nextChipName, setNextChipName] = useState("");
   const [nextChipLotId, setNextChipLotId] = useState<number | null>(null);
+  const [nextChipMaquinaId, setNextChipMaquinaId] = useState<number | null>(null);
   const [editingChipNum, setEditingChipNum] = useState<number | null>(null);
   const [editingChipName, setEditingChipName] = useState("");
   const [editingChipLotId, setEditingChipLotId] = useState<number | null>(null);
+  const [editingChipMaquinaId, setEditingChipMaquinaId] = useState<number | null>(null);
   const [savingChipName, setSavingChipName] = useState(false);
   const [chipSearchQuery, setChipSearchQuery] = useState("");
   const pendingHighlight = useRef(parseChipHighlight(searchParams));
@@ -59,10 +70,12 @@ function ChipPage() {
     const [
       { data: chipsData, error: chipsError },
       { data: lotsData, error: lotsError },
+      { data: maqData, error: maqError },
       { data: asigData, error: asigError },
     ] = await Promise.all([
       supabase.from("DChips").select("*").order("NumChip_D", { ascending: true }),
       supabase.from("Lotes_Chips").select("*"),
+      supabase.from("DMaquinas").select("Cod, Apodo").order("Cod", { ascending: true }),
       supabase
         .from("Chips")
         .select("NumChip, NumBN_C, NumLectura_C, NumLectMarc_C, FC, Repetir_Chip")
@@ -80,6 +93,18 @@ function ChipPage() {
       const nextNum = maxNum + 1;
       setNextChipNum(nextNum);
       setNextChipName(buildChipName(nextNum));
+    }
+
+    if (maqError) {
+      console.error("Error al cargar máquinas:", maqError);
+      toast.error(t("chips.toast.loadError"));
+      setMaquinas([]);
+    } else {
+      const catalogMaq = ((maqData || []) as Record<string, unknown>[])
+        .map((row) => toMaquinaCatalogo(row))
+        .filter((row): row is MaquinaCatalogo => row != null);
+      setMaquinas(catalogMaq);
+      setNextChipMaquinaId((prev) => defaultMaquinaForChip(catalogMaq, prev));
     }
 
     if (lotsError) {
@@ -160,12 +185,14 @@ function ChipPage() {
         NumChip_D: nextChipNum,
         Nombre_Chip: nombre,
         Id_LtC: nextChipLotId,
+        Id_Maquina: nextChipMaquinaId,
       });
 
       if (error) throw error;
 
       toast.success(t("chips.toast.added"));
       setNextChipLotId(null);
+      setNextChipMaquinaId(defaultMaquinaForChip(maquinas, null));
       await fetchChips();
     } catch (err) {
       console.error("Error al añadir chip:", err);
@@ -205,12 +232,14 @@ function ChipPage() {
     setEditingChipName(chip.Nombre_Chip ?? "");
     const lotId = Number(chip.Id_LtC);
     setEditingChipLotId(chip.Id_LtC != null && Number.isFinite(lotId) && lotId > 0 ? lotId : null);
+    setEditingChipMaquinaId(parseMaquinaCod(chip.Id_Maquina));
   }
 
   function handleCancelEditChipName() {
     setEditingChipNum(null);
     setEditingChipName("");
     setEditingChipLotId(null);
+    setEditingChipMaquinaId(null);
   }
 
   async function handleSaveChipName(chipNum: number) {
@@ -223,9 +252,14 @@ function ChipPage() {
     const lot = lotesChip.find((l) => l.id === editingChipLotId) ?? null;
     setSavingChipName(true);
     try {
+      const maq = maquinas.find((m) => Number(m.Cod) === editingChipMaquinaId) ?? null;
       const { error: dChipsError } = await supabase
         .from("DChips")
-        .update({ Nombre_Chip: nombre, Id_LtC: editingChipLotId })
+        .update({
+          Nombre_Chip: nombre,
+          Id_LtC: editingChipLotId,
+          Id_Maquina: editingChipMaquinaId,
+        })
         .eq("NumChip_D", chipNum);
 
       if (dChipsError) throw dChipsError;
@@ -244,6 +278,8 @@ function ChipPage() {
                 ...chip,
                 Nombre_Chip: nombre,
                 Id_LtC: editingChipLotId,
+                Id_Maquina: editingChipMaquinaId,
+                Apodo: maq?.Apodo ?? null,
                 LN: lot?.LN ?? null,
                 PN: lot?.PN ?? null,
                 Exp: lot?.Exp ?? null,
@@ -298,7 +334,13 @@ function ChipPage() {
   return (
     <SubpageShell title={t("chips.title")} icon={Cpu} maxWidthClass="max-w-[1400px]">
       <div className="bionapp-panel p-4 mb-6">
-        <div className="grid gap-4 md:grid-cols-[90px_minmax(220px,1fr)_minmax(160px,0.8fr)_auto] md:items-end">
+        <div
+          className={`grid gap-4 md:items-end ${
+            maquinas.length > 0
+              ? "md:grid-cols-[90px_minmax(180px,1fr)_minmax(140px,0.7fr)_minmax(140px,0.7fr)_auto]"
+              : "md:grid-cols-[90px_minmax(220px,1fr)_minmax(160px,0.8fr)_auto]"
+          }`}
+        >
           <div>
             <p className="text-xs text-slate-500">{t("chips.number")}</p>
             <p className="text-sm font-medium">{nextChipNum}</p>
@@ -329,6 +371,23 @@ function ChipPage() {
               ))}
             </select>
           </div>
+          {maquinas.length > 0 ? (
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500 mb-1">{t("chips.machine")}</p>
+              <select
+                value={nextChipMaquinaId ?? ""}
+                onChange={(e) => setNextChipMaquinaId(parseMaquinaCod(e.target.value))}
+                className="h-9 text-sm border rounded px-1 w-full min-w-0"
+              >
+                <option value="">{t("common.selectPlaceholder")}</option>
+                {maquinas.map((maq) => (
+                  <option key={maq.Cod} value={maq.Cod}>
+                    {formatMaquinaLabel(maq)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div className="flex justify-end">
             <Button onClick={handleAddChip} size="sm" className="h-9 gap-2 bionapp-btn-green">
               <Plus className="h-4 w-4" />
@@ -473,6 +532,35 @@ function ChipPage() {
                 </div>
               </header>
               <div className="bionapp-chip-card__lote">
+                {editing && maquinas.length > 0 ? (
+                  <div className="bionapp-marcado-field">
+                    <Label className="text-xs whitespace-nowrap">{t("chips.machine")}</Label>
+                    <select
+                      value={editingChipMaquinaId ?? ""}
+                      onChange={(e) => setEditingChipMaquinaId(parseMaquinaCod(e.target.value))}
+                      className="h-7 text-xs border rounded px-1 min-w-0"
+                    >
+                      <option value="">{t("common.selectPlaceholder")}</option>
+                      {maquinas.map((maq) => (
+                        <option key={maq.Cod} value={maq.Cod}>
+                          {formatMaquinaLabel(maq)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : chip.Apodo || chip.Id_Maquina ? (
+                  <div className="bionapp-marcado-field">
+                    <Label className="text-xs whitespace-nowrap">{t("chips.machine")}</Label>
+                    <span className="text-xs truncate">
+                      {formatMaquinaLabel(
+                        maquinas.find((m) => Number(m.Cod) === Number(chip.Id_Maquina)) ?? {
+                          Cod: Number(chip.Id_Maquina) || 0,
+                          Apodo: chip.Apodo ?? "",
+                        }
+                      )}
+                    </span>
+                  </div>
+                ) : null}
                 <LoteLnField
                   layout="inline"
                   editMode={editing}

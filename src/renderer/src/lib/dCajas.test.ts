@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { DEFAULT_DCJAS, lotTiposForCajaTipo, parseCajaTipo } from "@shared/dCajas"
+import { cajaTieneSubcajas, DEFAULT_DCJAS, lotTiposForCajaTipo, parseCajaTipo } from "@shared/dCajas"
 import {
   findDCaja,
   lotAssignKey,
@@ -26,6 +26,15 @@ describe("lotTiposForCajaTipo", () => {
     expect(lotTiposForCajaTipo("marcado")).toEqual(["marcado"])
     expect(lotTiposForCajaTipo("extraido")).toEqual(["extraido"])
     expect(lotTiposForCajaTipo("chip")).toEqual(["chip"])
+  })
+})
+
+describe("cajaTieneSubcajas", () => {
+  it("splits extraction and labeling, not chips", () => {
+    expect(cajaTieneSubcajas("extraido")).toBe(true)
+    expect(cajaTieneSubcajas("marcado")).toBe(true)
+    expect(cajaTieneSubcajas("chip")).toBe(false)
+    expect(cajaTieneSubcajas(null)).toBe(true)
   })
 })
 

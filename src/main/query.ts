@@ -1,8 +1,14 @@
 import type Database from 'better-sqlite3'
-import type { DbFilter, DbOrder, DbRequest, DbResponse } from '../shared/types'
+import type { DbFilter, DbOrder, DbRequest, DbResponse, Role } from '../shared/types'
 import { ensureFiltrosSchema } from './db'
 import { touchLastWrite } from './dbActivity'
-import { applyLotWrite, attachLotFields, ensureEnviosSchema, ensureLotesChipsSchema } from './lotes'
+import { applyLotWrite, attachLotFields, ensureDMaquinasSchema, ensureEnviosSchema, ensureLotesChipsSchema } from './lotes'
+import {
+  type AuditActor,
+  ensureRegistroSchema,
+  safeWriteRegistro,
+  summarizeDbChange
+} from './registro'
 
 const ALLOWED_TABLES = new Set([
   'Muestras',
@@ -14,6 +20,7 @@ const ALLOWED_TABLES = new Set([
   'DDx',
   'DMuestra',
   'DCajas',
+  'DMaquinas',
   'Tags',
   'Muestra_Tags',
   'Preselect',
@@ -25,6 +32,7 @@ const ALLOWED_TABLES = new Set([
   'Envio_Cajas',
   'Stock',
   'Filtros',
+  'Registro',
   'profiles',
   'users'
 ])
@@ -60,6 +68,12 @@ const EMBEDS: Record<
       localKey: 'Id_LtC',
       foreignKey: 'Id_LtC',
       columns: ['PN', 'LN', 'Exp']
+    },
+    DMaquinas: {
+      table: 'DMaquinas',
+      localKey: 'Id_Maquina',
+      foreignKey: 'Cod',
+      columns: ['Apodo']
     }
   }
 }
@@ -284,16 +298,37 @@ function fail(message: string): DbResponse {
   return { data: null, error: { message } }
 }
 
-function okMutation(db: Database.Database, data: unknown): DbResponse {
+function okMutation(
+  db: Database.Database,
+  data: unknown,
+  req: DbRequest,
+  actor?: AuditActor
+): DbResponse {
   try {
     touchLastWrite(db)
   } catch {
     /* ignore */
   }
+  safeWriteRegistro(db, {
+    usuario: actor?.username ?? '',
+    accion: req.action,
+    tabla: req.table,
+    detalle: summarizeDbChange({
+      data: data ?? req.data,
+      filters: req.filters
+    }),
+    ip: actor?.ip ?? '',
+    equipo: actor?.host ?? ''
+  })
   return ok(data)
 }
 
-export function executeDbRequest(db: Database.Database, req: DbRequest): DbResponse {
+export function executeDbRequest(
+  db: Database.Database,
+  req: DbRequest,
+  actor?: AuditActor,
+  role?: Role | null
+): DbResponse {
   try {
     if (!ALLOWED_TABLES.has(req.table)) {
       return fail(`Tabla no permitida: ${req.table}`)
@@ -305,11 +340,23 @@ export function executeDbRequest(db: Database.Database, req: DbRequest): DbRespo
     if (req.table === 'users') {
       return fail('Acceso directo a users no permitido')
     }
+    if (req.table === 'Registro') {
+      ensureRegistroSchema(db)
+      if (role !== 'admin') {
+        return fail('Solo el administrador puede consultar el registro')
+      }
+      if (req.action !== 'select') {
+        return fail('Registro es de solo lectura')
+      }
+    }
     if (req.table === 'Filtros') {
       ensureFiltrosSchema(db)
     }
     if (req.table === 'Lotes_Chips' || req.table === 'DChips') {
       ensureLotesChipsSchema(db)
+    }
+    if (req.table === 'DMaquinas' || req.table === 'DChips') {
+      ensureDMaquinasSchema(db)
     }
     if (
       req.table === 'Envios' ||
@@ -348,6 +395,7 @@ export function executeDbRequest(db: Database.Database, req: DbRequest): DbRespo
       attachLotFields(db, req.table, rows)
       if (!parsed.star && parsed.columns.length) {
         const keep = new Set([...parsed.columns, ...parsed.embeds])
+        if (req.table === 'DChips') keep.add('Apodo')
         for (let i = 0; i < rows.length; i++) {
           const slim: Record<string, unknown> = {}
           for (const k of Object.keys(rows[i])) {
@@ -384,7 +432,7 @@ export function executeDbRequest(db: Database.Database, req: DbRequest): DbRespo
       })
       tx()
       attachLotFields(db, req.table, inserted)
-      return okMutation(db, Array.isArray(req.data) ? inserted : inserted[0])
+      return okMutation(db, Array.isArray(req.data) ? inserted : inserted[0], req, actor)
     }
 
     if (req.action === 'update') {
@@ -403,14 +451,14 @@ export function executeDbRequest(db: Database.Database, req: DbRequest): DbRespo
         .prepare(`SELECT * FROM ${quoteId(req.table)} WHERE ${whereSqlBare}`)
         .all(...whereParams) as Record<string, unknown>[]
       attachLotFields(db, req.table, updated)
-      return okMutation(db, updated)
+      return okMutation(db, updated, req, actor)
     }
 
     if (req.action === 'delete') {
       if (!req.filters?.length) return fail('delete sin filtro rechazado')
       const { sql: whereSqlBare, params } = buildFilterClause(req.filters)
       db.prepare(`DELETE FROM ${quoteId(req.table)} WHERE ${whereSqlBare}`).run(...params)
-      return okMutation(db, null)
+      return okMutation(db, null, req, actor)
     }
 
     if (req.action === 'upsert') {
@@ -443,7 +491,7 @@ export function executeDbRequest(db: Database.Database, req: DbRequest): DbRespo
       })
       tx()
       attachLotFields(db, req.table, upserted)
-      return okMutation(db, Array.isArray(req.data) ? upserted : upserted[0])
+      return okMutation(db, Array.isArray(req.data) ? upserted : upserted[0], req, actor)
     }
 
     return fail(`Acción no soportada: ${req.action}`)

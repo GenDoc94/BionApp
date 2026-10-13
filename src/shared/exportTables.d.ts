@@ -1,8 +1,8 @@
 import type { ExportFormat } from './types';
 /** Tablas de dominio exportables (sin secretos: meta, password hashes). */
-export declare const EXPORT_TABLES: readonly ["DMuestra", "DDx", "DCajas", "DChips", "Tags", "Lotes_Extraido", "Lotes_Marcado", "Lotes_Membrana", "Lotes_Chips", "Envios", "Envio_Cajas", "Stock", "Filtros", "Muestras", "Lectura", "Marcado", "Lecturas_Marcado", "Chips", "Preselect", "Muestra_Tags", "profiles"];
+export declare const EXPORT_TABLES: readonly ["DMuestra", "DDx", "DCajas", "DChips", "DMaquinas", "Tags", "Lotes_Extraido", "Lotes_Marcado", "Lotes_Membrana", "Lotes_Chips", "Envios", "Envio_Cajas", "Stock", "Filtros", "Muestras", "Lectura", "Marcado", "Lecturas_Marcado", "Chips", "Preselect", "Muestra_Tags", "profiles", "Registro"];
 export type ExportTableName = (typeof EXPORT_TABLES)[number];
-export type ExportTableGroupId = 'catalog' | 'lots' | 'shipments' | 'samples' | 'users';
+export type ExportTableGroupId = 'catalog' | 'lots' | 'shipments' | 'samples' | 'users' | 'log';
 export type ExportTableGroup = {
     id: ExportTableGroupId;
     tables: readonly ExportTableName[];

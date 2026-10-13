@@ -4,16 +4,22 @@ import type { LoteCatalogo } from "./enviosPageData"
 import {
   CAJA_TIPOS as CAJA_TIPOS_SRC,
   DEFAULT_DCJAS as DEFAULT_DCJAS_SRC,
+  SUBCAJA_TEMPS as SUBCAJA_TEMPS_SRC,
+  cajaTieneSubcajas as cajaTieneSubcajasSrc,
   parseCajaTipo as parseCajaTipoSrc,
   type CajaLotTipo,
   type CajaTipo,
   type DCajaSeed,
+  type SubcajaSufijo,
+  type SubcajaTempId,
 } from "@shared/dCajas"
 
 export const CAJA_TIPOS = CAJA_TIPOS_SRC
 export const DEFAULT_DCJAS = DEFAULT_DCJAS_SRC
 export const parseCajaTipo = parseCajaTipoSrc
-export type { CajaTipo, CajaLotTipo, DCajaSeed }
+export const SUBCAJA_TEMPS = SUBCAJA_TEMPS_SRC
+export const cajaTieneSubcajas = cajaTieneSubcajasSrc
+export type { CajaTipo, CajaLotTipo, DCajaSeed, SubcajaSufijo, SubcajaTempId }
 
 export type DCajaRow = {
   Codigo_BIO: string

@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.2.0
+
+- Roles **Usuario** (consulta), **TEL** (meter y modificar datos de laboratorio) y **Administrador** (acceso completo). En Perfil, el administrador ve la lista de usuarios, cambia roles y puede cambiar el código maestro.
+- TEL no ve Variables, estadísticas, exportación, registro ni la lista de usuarios.
+- Opciones: las etiquetas pasan a Variables; nueva pestaña **Registro** con altas, cambios y bajas (fecha, usuario e IP). Catálogo de **máquinas** (código y apodo) en Variables.
+- Al cargar en Pte Chip se elige la máquina; aparece en Chips, trazabilidad y el esquema imprimible. Las lecturas marcadas se reparten entre chips con FC libre.
+- Stock: cada kit BIO (salvo chips) se muestra en tres subcajas de temperatura (ambiente, nevera y congelador), con ubicación por LN. En Envíos, los kits se cuentan aparte de las cajas de chip.
+
 ## 4.1.1
 
 - Al abrir el `.exe` se muestra una pantalla de inicio mientras se desempaqueta, y otra al arrancar Electron, para que no parezca que se ha quedado colgada.

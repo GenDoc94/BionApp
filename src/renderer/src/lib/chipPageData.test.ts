@@ -10,8 +10,8 @@ import {
 } from "./chipPageData";
 
 const chips: ChipCatalogo[] = [
-  { NumChip_D: 1, Nombre_Chip: "20250702_Chip1", LN: "240101001" },
-  { NumChip_D: 25, Nombre_Chip: "20250702_Chip25" },
+  { NumChip_D: 1, Nombre_Chip: "20250702_Chip1", LN: "240101001", Apodo: "Saphyr1" },
+  { NumChip_D: 25, Nombre_Chip: "20250702_Chip25", Apodo: "Saphyr2" },
 ];
 
 const asignaciones: ChipAsignacion[] = [
@@ -55,6 +55,12 @@ describe("chipPageData search", () => {
   it("matches by chip LN", () => {
     expect(chipPanelMatchesQuery(panels[0], "240101001")).toBe(true);
     expect(chipPanelMatchesQuery(panels[1], "240101001")).toBe(false);
+  });
+
+  it("matches by machine nickname", () => {
+    expect(chipPanelMatchesQuery(panels[0], "saphyr1")).toBe(true);
+    expect(chipPanelMatchesQuery(panels[1], "Saphyr2")).toBe(true);
+    expect(chipPanelMatchesQuery(panels[0], "Saphyr2")).toBe(false);
   });
 
   it("parses chip highlight and card id", () => {

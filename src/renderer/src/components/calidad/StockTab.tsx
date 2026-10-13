@@ -12,12 +12,13 @@ import {
   type EnvioCajaRow,
   type EnvioRow,
 } from "../../lib/enviosPageData";
-import { parseDCajaRow, type DCajaRow } from "../../lib/dCajas";
-import { stockKey } from "../../lib/bioCodes";
+import { parseDCajaRow, SUBCAJA_TEMPS, type DCajaRow } from "../../lib/dCajas";
+import { stockKey, subcajaCode } from "../../lib/bioCodes";
 import {
   boxIconStates,
   buildStockGroups,
   catalogNombresFromRows,
+  catalogTiposFromRows,
   consumedBoxesByEnvio,
   filterStockGroups,
   parseQuedanInput,
@@ -27,6 +28,10 @@ import {
   type StockExtras,
   type StockLnGroup,
 } from "../../lib/stockPageData";
+
+function lugarKey(lnKey: string, sufijo?: 1 | 2 | 3): string {
+  return sufijo ? `${lnKey}::${sufijo}` : lnKey;
+}
 
 export default function StockTab() {
   const { t } = useTranslation();
@@ -62,14 +67,26 @@ export default function StockTab() {
     const dcajas = (dcajasRes.data || [])
       .map((r) => parseDCajaRow(r as Record<string, unknown>))
       .filter((r): r is DCajaRow => r != null);
-    const built = buildStockGroups(cajas, extras, envios, catalogNombresFromRows(dcajas));
+    const built = buildStockGroups(
+      cajas,
+      extras,
+      envios,
+      catalogNombresFromRows(dcajas),
+      catalogTiposFromRows(dcajas)
+    );
     setGroups(built);
     const lugares: Record<string, string> = {};
     const quedan: Record<string, string> = {};
     for (const bio of built) {
       for (const ln of bio.lns) {
         const key = stockKey(ln.Codigo_BIO, ln.LN);
-        lugares[key] = ln.Lugar;
+        if (ln.splitTemps) {
+          lugares[lugarKey(key, 1)] = ln.Lugar_1;
+          lugares[lugarKey(key, 2)] = ln.Lugar_2;
+          lugares[lugarKey(key, 3)] = ln.Lugar_3;
+        } else {
+          lugares[key] = ln.Lugar;
+        }
         quedan[key] = ln.Cajas_Quedan == null ? "" : String(ln.Cajas_Quedan);
       }
     }
@@ -92,13 +109,23 @@ export default function StockTab() {
       return;
     }
     const lugar = (lugarDraft[key] ?? "").trim();
-    if (lugar === ln.Lugar && parsed === ln.Cajas_Quedan) return;
+    const lugar1 = (lugarDraft[lugarKey(key, 1)] ?? "").trim();
+    const lugar2 = (lugarDraft[lugarKey(key, 2)] ?? "").trim();
+    const lugar3 = (lugarDraft[lugarKey(key, 3)] ?? "").trim();
+    const sameQuedan = parsed === ln.Cajas_Quedan;
+    const sameLugar = ln.splitTemps
+      ? lugar1 === ln.Lugar_1 && lugar2 === ln.Lugar_2 && lugar3 === ln.Lugar_3
+      : lugar === ln.Lugar;
+    if (sameLugar && sameQuedan) return;
     const { error } = await supabase.from("Stock").upsert(
       [
         {
           Codigo_BIO: ln.Codigo_BIO,
           LN: ln.LN,
-          Lugar: lugar,
+          Lugar: ln.splitTemps ? ln.Lugar : lugar,
+          Lugar_1: ln.splitTemps ? lugar1 : ln.Lugar_1,
+          Lugar_2: ln.splitTemps ? lugar2 : ln.Lugar_2,
+          Lugar_3: ln.splitTemps ? lugar3 : ln.Lugar_3,
           Cajas_Quedan: parsed,
         },
       ],
@@ -113,10 +140,14 @@ export default function StockTab() {
     await load();
   }
 
-  function envioTitle(envio: StockEnvioRef) {
+  function envioTitle(envio: StockEnvioRef, asKit: boolean) {
     const so = envio.Sales_Order || t("stock.envioUnknown");
     const date = envio.Fecha_Llegada ? formatIsoDateDisplay(envio.Fecha_Llegada) : t("common.empty");
-    return t("stock.envioTip", { so, count: envio.Num_Cajas, date });
+    return t(asKit ? "stock.envioTipKits" : "stock.envioTip", {
+      so,
+      count: envio.Num_Cajas,
+      date,
+    });
   }
 
   if (loading) {
@@ -157,7 +188,13 @@ export default function StockTab() {
                 <span className="bionapp-stock-bio__code">{bio.Codigo_BIO}</span>
                 <span className="bionapp-stock-bio__name">{bio.Nombre || t("common.empty")}</span>
                 <span className="bionapp-stock-bio__total">
-                  {t("stock.bioTotal", { count: bio.totalCajas, lns: bio.lns.length })}
+                  {bio.splitTemps
+                    ? t("stock.bioTotalKits", {
+                        count: bio.totalCajas,
+                        subs: bio.totalCajas * 3,
+                        lns: bio.lns.length,
+                      })
+                    : t("stock.bioTotal", { count: bio.totalCajas, lns: bio.lns.length })}
                 </span>
               </header>
               <ul className="bionapp-stock-lns">
@@ -178,7 +215,7 @@ export default function StockTab() {
                             <div
                               key={envio.id}
                               className="bionapp-stock-envio"
-                              title={envioTitle(envio)}
+                              title={envioTitle(envio, ln.splitTemps)}
                             >
                               <Truck className="h-3.5 w-3.5 shrink-0 text-sky-700 dark:text-sky-300" />
                               <span className="bionapp-stock-envio__so">
@@ -204,20 +241,49 @@ export default function StockTab() {
                         })}
                       </div>
                       <div className="bionapp-stock-ln__meta">
-                        <label className="bionapp-stock-field">
-                          <span>{t("stock.place")}</span>
-                          <Input
-                            value={lugarDraft[key] ?? ""}
-                            onChange={(e) =>
-                              setLugarDraft((cur) => ({ ...cur, [key]: e.target.value }))
-                            }
-                            onBlur={() => void saveLn(ln)}
-                            className="h-8 text-sm min-w-[160px]"
-                            placeholder={t("stock.placePlaceholder")}
-                          />
-                        </label>
+                        {ln.splitTemps ? (
+                          <div className="bionapp-stock-subcajas">
+                            {SUBCAJA_TEMPS.map((temp) => {
+                              const field = lugarKey(key, temp.sufijo);
+                              return (
+                                <label key={temp.sufijo} className="bionapp-stock-field">
+                                  <span>
+                                    <span className="bionapp-stock-subcaja__code">
+                                      {subcajaCode(ln.Codigo_BIO, temp.sufijo)}
+                                    </span>
+                                    {t(`stock.temp.${temp.id}`)}
+                                  </span>
+                                  <Input
+                                    value={lugarDraft[field] ?? ""}
+                                    onChange={(e) =>
+                                      setLugarDraft((cur) => ({ ...cur, [field]: e.target.value }))
+                                    }
+                                    onBlur={() => void saveLn(ln)}
+                                    className="h-8 text-sm min-w-[140px]"
+                                    placeholder={t("stock.placePlaceholder")}
+                                  />
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <label className="bionapp-stock-field">
+                            <span>{t("stock.place")}</span>
+                            <Input
+                              value={lugarDraft[key] ?? ""}
+                              onChange={(e) =>
+                                setLugarDraft((cur) => ({ ...cur, [key]: e.target.value }))
+                              }
+                              onBlur={() => void saveLn(ln)}
+                              className="h-8 text-sm min-w-[160px]"
+                              placeholder={t("stock.placePlaceholder")}
+                            />
+                          </label>
+                        )}
                         <label className="bionapp-stock-field bionapp-stock-field--quedan">
-                          <span>{t("stock.remaining")}</span>
+                          <span>
+                            {ln.splitTemps ? t("stock.remainingKits") : t("stock.remaining")}
+                          </span>
                           <Input
                             value={quedanDraft[key] ?? ""}
                             onChange={(e) =>

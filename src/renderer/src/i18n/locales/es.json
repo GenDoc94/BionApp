@@ -44,6 +44,7 @@
   },
   "role": {
     "admin": "Administrador",
+    "tel": "TEL",
     "user": "Usuario",
     "unassigned": "Sin asignar"
   },
@@ -60,7 +61,7 @@
     "mismatch": "Los códigos no coinciden",
     "continue": "Continuar",
     "preparing": "Preparando…",
-    "remember": "Apunta bien el código maestro, no se podrá cambiar.",
+    "remember": "Apunta bien el código maestro. Un administrador puede cambiarlo después en Opciones → Perfil.",
     "languageHint": "También puedes elegir el idioma de la interfaz."
   },
   "login": {
@@ -91,7 +92,7 @@
     "email": "Correo electrónico",
     "password": "Contraseña",
     "role": "Rol",
-    "roleHelp": "user solo puede leer muestras; admin puede añadir nuevas muestras.",
+    "roleHelp": "Usuario: solo consulta. TEL: mete y modifica datos, sin catálogos ni exportación. Administrador: acceso completo.",
     "adminCode": "Código maestro",
     "adminCodePlaceholder": "Código privado",
     "creating": "Creando usuario...",
@@ -157,7 +158,8 @@
       "export": "Exportación",
       "appearance": "Apariencia",
       "manual": "Manual",
-      "authorship": "Autoría"
+      "authorship": "Autoría",
+      "log": "Registro"
     },
     "setup": {
       "continue": "Continuar a la base",
@@ -169,7 +171,7 @@
     },
     "restricted": {
       "title": "Acceso restringido",
-      "catalogs": "Necesitas rol admin para modificar los catálogos DMuestra, DDx y DCajas.",
+      "catalogs": "Necesitas rol admin para modificar los catálogos DMuestra, DDx, DCajas y las etiquetas.",
       "tags": "Necesitas rol admin para crear y editar etiquetas."
     },
     "vars": {
@@ -194,7 +196,12 @@
         "extraido": "Extracción",
         "marcado": "Marcaje",
         "chip": "Chips"
-      }
+      },
+      "machines": "Máquinas",
+      "addMachine": "Añadir máquina",
+      "machineHint": "Apodo (p. ej. Saphyr1, Saphyr2…)",
+      "machinePlaceholder": "Saphyr1",
+      "machineDeleteHint": "Solo se puede eliminar la última máquina (Cod más alto). Si algún chip la tenía asignada, queda sin máquina."
     },
     "list": {
       "current": "Listado actual"
@@ -205,7 +212,8 @@
       "boxName": "Nombre",
       "boxTipo": "Tipo",
       "actions": "Acciones",
-      "name": "Nombre"
+      "name": "Nombre",
+      "nickname": "Apodo"
     },
     "empty": {
       "values": "No hay valores."
@@ -232,6 +240,7 @@
       "deleteCatalog": "Error eliminando del catálogo",
       "addDx": "Error añadiendo diagnóstico",
       "addCaja": "Error añadiendo el código de caja",
+      "addMachine": "Error añadiendo la máquina",
       "addTag": "Error añadiendo etiqueta",
       "saveTag": "Error guardando etiqueta",
       "deleteTag": "Error eliminando etiqueta"
@@ -249,7 +258,41 @@
     "profile": {
       "email": "Correo",
       "role": "Rol",
-      "roleLocked": "Por el momento no se puede cambiar el rol una vez asignado."
+      "roleLocked": "El rol lo asigna un administrador.",
+      "users": "Usuarios",
+      "usersHelp": "Cambia el rol de cada cuenta. El administrador tiene acceso a todo. TEL puede meter y modificar datos, sin Variables, estadísticas, exportación ni registro.",
+      "roleUpdated": "Rol de {{email}} actualizado",
+      "masterCode": "Código maestro",
+      "masterCodeHelp": "Sirve para crear usuarios y para cambiar la carpeta de datos. No se muestra: hay que introducir el actual y el nuevo.",
+      "masterCodeCurrent": "Código actual",
+      "masterCodeNew": "Código nuevo (mín. 4)",
+      "masterCodeConfirm": "Repetir código nuevo",
+      "masterCodeSave": "Cambiar código maestro",
+      "masterCodeUpdated": "Código maestro actualizado",
+      "masterCodeIncomplete": "Completa el código actual, el nuevo y la confirmación"
+    },
+    "log": {
+      "title": "Registro de cambios",
+      "help": "Cada alta, cambio o baja en la base queda aquí con fecha, usuario e IP de la máquina. El registro es de solo lectura.",
+      "search": "Buscar en el registro…",
+      "refresh": "Actualizar",
+      "empty": "Aún no hay cambios registrados.",
+      "noMatches": "Ninguna entrada coincide con la búsqueda.",
+      "loadError": "No se pudo cargar el registro",
+      "col": {
+        "when": "Fecha y hora",
+        "user": "Usuario",
+        "origin": "IP / equipo",
+        "action": "Acción",
+        "table": "Tabla",
+        "detail": "Detalle"
+      },
+      "action": {
+        "insert": "Añadió",
+        "update": "Modificó",
+        "delete": "Eliminó",
+        "upsert": "Actualizó"
+      }
     },
     "theme": {
       "title": "Tema de la interfaz",
@@ -373,11 +416,11 @@
       "calidad": "**Calidad**: envíos (código BIO del catálogo y LN de Lotes), stock, catálogo de lotes, trazabilidad y filtros de aire.",
       "lotes": "**Lotes**: catálogo de lotes de extracción, marcado, membrana y chip, con las muestras, lecturas y chips asociados.",
       "calcs": "**Cálculos**: utilidades de laboratorio (p. ej. diluciones) a partir de los datos ya registrados.",
-      "options": "**Opciones**: perfil, variables, etiquetas, estadísticas, documentos, exportación, apariencia y manual."
+      "options": "**Opciones**: perfil, variables (tipos de muestra, diagnósticos, cajas BIO, máquinas y etiquetas), estadísticas, documentos, exportación, apariencia, manual, autoría y registro."
     },
     "roles": {
       "title": "Roles y usuarios",
-      "body": "El rol user sirve para consultar muestras. El rol admin puede añadir muestras, gestionar catálogos y etiquetas. Los usuarios nuevos se crean con el **código maestro** definido al configurar la aplicación."
+      "body": "El rol **Usuario** sirve para consultar muestras. El rol **TEL** puede meter y modificar datos, pero no ve Variables, estadísticas, exportación, registro ni la lista de usuarios. El rol **Administrador** tiene acceso a todo, incluido cambiar roles y el **código maestro** en Perfil. Los usuarios nuevos se crean con ese código."
     },
     "edit": {
       "title": "Editar y guardar",
@@ -461,7 +504,8 @@
       "lots": "Lotes",
       "shipments": "Envíos y stock",
       "samples": "Muestras",
-      "users": "Usuarios"
+      "users": "Usuarios",
+      "log": "Registro"
     },
     "tablesIncluded": "Tablas incluidas: {{tables}}.",
     "toast": {
@@ -666,7 +710,9 @@
     "number": "Nº Chip",
     "name": "Nombre de chip",
     "add": "Añadir chip",
-    "searchPlaceholder": "Buscar por Nº chip, nombre, LN o Nº muestra...",
+    "searchPlaceholder": "Buscar por Nº chip, nombre, máquina, LN o Nº muestra...",
+    "machine": "Máquina",
+    "noMachines": "No hay máquinas. Añádelas en Opciones → Variables.",
     "searchCount": "{{filtered}} de {{total}} chips",
     "clear": "Limpiar",
     "empty": "No hay chips en el catálogo. Añade el primero con el formulario de arriba.",
@@ -713,7 +759,7 @@
   },
   "envios": {
     "loading": "Cargando envíos...",
-    "help": "Cada envío trae cajas. Elige el código BIO del catálogo y el LN de Lotes (marcaje → LN de marcado; extracción → extraído; chips → chips). El mismo BIO y LN puede repetirse en varios envíos.",
+    "help": "Cada envío trae kits. Un kit es un BIO-XXXXX con 3 cajas físicas (ambiente, nevera y congelador). Los chips se cuentan como cajas, no como kits. Elige el código BIO del catálogo y el LN de Lotes (marcaje → LN de marcado; extracción → extraído; chips → chips).",
     "salesOrder": "Sales Order",
     "salesOrderPlaceholder": "Ej. WR00001234",
     "exists": "Ya existe",
@@ -727,12 +773,14 @@
     "save": "Guardar envío",
     "cancel": "Cancelar",
     "delete": "Eliminar envío",
-    "confirmDelete": "¿Eliminar el envío {{so}} y sus cajas?",
+    "confirmDelete": "¿Eliminar el envío {{so}} y sus kits?",
     "searchPlaceholder": "Buscar por Sales Order, BIO, LN o fecha...",
     "empty": "No hay envíos. Añade el primero con el formulario de arriba.",
     "noMatch": "Ningún envío coincide con la búsqueda.",
     "boxesCount": "{{count}} cajas",
-    "noBoxes": "Este envío aún no tiene cajas.",
+    "kitsCount": "{{count}} kits",
+    "countBoth": "{{kits}} kits · {{cajas}} cajas",
+    "noBoxes": "Este envío aún no tiene kits ni cajas.",
     "assignBio": "Código BIO",
     "assignLn": "LN del catálogo",
     "cajaTipo": {
@@ -745,23 +793,28 @@
     "boxName": "Nombre del kit",
     "boxNamePlaceholder": "Bionano Prep DLS-G2 Labeling Kit (24 Reactions)",
     "qty": "Cajas",
+    "qtyKits": "Kits",
     "addBox": "Añadir cajas",
+    "addKit": "Añadir kits",
     "deleteBox": "Quitar línea",
     "boxQty": "{{count}} cajas",
+    "kitQty": "{{count}} kits",
     "toast": {
       "loadError": "Error al cargar envíos",
       "needSalesOrder": "Indica el Sales Order",
       "needBio": "Selecciona un código BIO",
       "needLot": "Selecciona un LN del catálogo de Lotes",
       "needQty": "Indica cuántas cajas (mínimo 1)",
+      "needQtyKits": "Indica cuántos kits (mínimo 1)",
       "added": "Envío añadido",
       "addError": "Error al añadir el envío",
       "duplicate": "Ese Sales Order ya existe",
       "duplicateCaja": "Ese LN ya está en este envío",
       "cajaAdded": "Cajas añadidas al envío",
-      "cajaDeleted": "Línea de cajas eliminada",
-      "cajaUpdated": "Número de cajas actualizado",
-      "cajaError": "Error al guardar las cajas",
+      "kitAdded": "Kits añadidos al envío",
+      "cajaDeleted": "Línea eliminada",
+      "cajaUpdated": "Cantidad actualizada",
+      "cajaError": "Error al guardar la línea",
       "updated": "Envío actualizado",
       "updateError": "Error al guardar el envío",
       "deleted": "Envío eliminado"
@@ -769,8 +822,8 @@
   },
   "stock": {
     "loading": "Cargando stock...",
-    "help": "Cada código BIO agrupa sus LN. El mismo BIO y LN puede haber llegado en varios envíos: se ven las cajas de cada envío. El lugar es libre por BIO+LN.",
-    "searchPlaceholder": "Buscar por BIO, nombre, LN, envío o lugar...",
+    "help": "Cada código BIO agrupa sus LN. En extracción y marcaje cada kit son 3 subcajas: XXXXX-1 ambiente (15-30 °C), XXXXX-2 nevera (2-5 °C) y XXXXX-3 congelador (−20 °C). El sitio se indica por subcaja; «quedan» es el número de kits. Los chips no se parten.",
+    "searchPlaceholder": "Buscar por BIO, subcaja, LN, envío o lugar...",
     "empty": "Aún no hay cajas en los envíos. Añádelas en la pestaña Envíos.",
     "noMatch": "Ningún stock coincide con la búsqueda.",
     "bio": "BIO",
@@ -779,7 +832,15 @@
     "place": "Dónde están",
     "placePlaceholder": "Nevera, estante…",
     "bioTotal": "{{count}} cajas · {{lns}} LN",
+    "bioTotalKits": "{{count}} kits ({{subs}} subcajas) · {{lns}} LN",
+    "remainingKits": "Quedan (kits)",
+    "temp": {
+      "ambiente": "Ambiente 15-30 °C",
+      "nevera": "Nevera 2-5 °C",
+      "congelador": "Congelador −20 °C"
+    },
     "envioTip": "{{so}} · {{count}} cajas · llegada {{date}}",
+    "envioTipKits": "{{so}} · {{count}} kits · llegada {{date}}",
     "envioUnknown": "Envío",
     "total": "Total cajas",
     "totalValue": "{{count}} ({{envios}} envíos)",
@@ -815,6 +876,7 @@
     "lnMarcado": "LN marcado {{ln}}",
     "lnMembrana": "LN membrana {{ln}}",
     "lnChip": "LN chip {{ln}}",
+    "maquina": "Máquina {{name}}",
     "chipNode": "Chip #{{num}} {{name}} · FC {{fc}}",
     "toast": {
       "loadError": "Error al cargar la trazabilidad"
@@ -1009,9 +1071,22 @@
     "marcarSelected": "{{count}} seleccionada(s)",
     "pteChipLoad": "Cargar a chip",
     "pteChipLoadConfirm": "Cargar",
-    "pteChipLoadHint": "Elige un chip con huecos FC libres. Cada chip tiene 3 FC; se asignan en orden a {{count}} lectura(s) marcada(s).",
+    "pteChipLoadHint": "Los huecos FC de los chips libres se asignan en orden a {{count}} lectura(s) marcada(s). Cada chip tiene 3 FC; si hacen falta más, se sigue en el siguiente chip. Pulsa un chip para empezar por ese.",
+    "pteChipMachineTitle": "¿En qué máquina cargas cada chip?",
+    "pteChipMachineChip": "Chip #{{num}}",
+    "pteChipMachineNone": "— Sin máquina —",
     "pteChipQueueItem": "BN {{numBN}} · Lect. {{numLectura}} · LM {{numLectMarc}}",
+    "pteChipSlotOption": "Chip #{{numChip}} · FC {{fc}}",
+    "pteChipLoadedTitle": "Carga lista para pipetear",
+    "pteChipLoadedHelp": "Este es el esquema: qué BN va en cada FC. Imprímelo para llevarlo a la mesa.",
+    "pteChipPrintSchema": "Imprimir esquema",
+    "pteChipClose": "Cerrar",
     "pteChipGoCreate": "Crear chip",
+    "printChip": {
+      "docTitle": "Esquema de carga de chips",
+      "heading": "Esquema de carga de chips",
+      "meta": "{{fecha}} · {{count}} lectura(s) en {{chips}} chip(s)"
+    },
     "leerExtraidoEditing": "Editando {{count}} lectura(s). Media y CV se previsualizan al rellenar Izq, Cen y Dcha; se confirman al guardar.",
     "preview": {
       "lm": "Vista previa al escribir Izq_LM y Dcha_LM (se confirma al guardar)",
@@ -1081,11 +1156,12 @@
       "pteChipNoChips": "No hay chips en el catálogo. Créalos en Chips.",
       "pteChipNoFree": "Ningún chip tiene huecos FC libres",
       "pteChipNeedChip": "Selecciona un chip",
-      "pteChipNeedFc": "Asigna un FC a cada lectura marcada",
-      "pteChipFcTaken": "El FC {{fc}} ya está usado en esta carga",
-      "pteChipNotEnough": "Este chip solo tiene {{free}} hueco(s) y hay {{count}} lectura(s) seleccionada(s)",
+      "pteChipNeedFc": "Asigna un hueco (chip y FC) a cada lectura marcada",
+      "pteChipNeedMachine": "Elige la máquina de cada chip que vas a cargar",
+      "pteChipFcTaken": "Ese hueco FC {{fc}} ya está usado en esta carga",
+      "pteChipNotEnough": "Hay {{count}} lectura(s) y solo {{free}} hueco(s) FC libre(s) en total",
       "pteChipAlready": "BN {{numBN}} L{{numLectura}} LM{{numLectMarc}} ya está en el chip #{{numChip}}",
-      "pteChipLoaded": "Se cargaron {{count}} lectura(s) marcada(s) al chip #{{numChip}}",
+      "pteChipLoaded": "Se cargaron {{count}} lectura(s) marcada(s) en {{chips}} chip(s)",
       "pteChipLoadError": "Error al cargar a chip",
       "sendToRead": "Se mandaron a leer {{count}} muestra(s)",
       "sendToReadNeedDate": "Selecciona la fecha de extracción",
@@ -1258,7 +1334,15 @@
       "passwordShort": "La contraseña es demasiado corta",
       "noAdminCode": "No hay código maestro en esta carpeta. Configúralo en el setup inicial.",
       "badAdminCode": "Código maestro incorrecto",
-      "userExists": "Ya existe un usuario con ese correo"
+      "userExists": "Ya existe un usuario con ese correo",
+      "userNotFound": "Usuario no encontrado",
+      "lastAdmin": "Tiene que quedar al menos un administrador",
+      "adminOnlyUsers": "Solo el administrador puede ver usuarios",
+      "adminOnlyRoles": "Solo el administrador puede cambiar roles",
+      "adminOnlyLog": "Solo el administrador puede consultar el registro",
+      "adminOnlyExport": "Solo el administrador puede exportar",
+      "adminOnlyMasterCode": "Solo el administrador puede cambiar el código maestro",
+      "adminCodeSame": "El código maestro nuevo tiene que ser distinto"
     }
   }
 }

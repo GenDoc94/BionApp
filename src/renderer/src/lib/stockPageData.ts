@@ -1,4 +1,5 @@
-import { normalizeBioCode, stockKey } from "./bioCodes"
+import { normalizeBioCode, stockKey, subcajaCode } from "./bioCodes"
+import { cajaTieneSubcajas, SUBCAJA_TEMPS, type CajaTipo } from "./dCajas"
 import type { EnvioCajaRow, EnvioRow } from "./enviosPageData"
 
 export const STOCK_BOX_ICON_MAX = 12
@@ -7,6 +8,9 @@ export type StockExtras = {
   Codigo_BIO: string
   LN: string
   Lugar: string
+  Lugar_1?: string
+  Lugar_2?: string
+  Lugar_3?: string
   Cajas_Quedan: number | null
 }
 
@@ -21,7 +25,11 @@ export type StockEnvioRef = {
 export type StockLnGroup = {
   Codigo_BIO: string
   LN: string
+  splitTemps: boolean
   Lugar: string
+  Lugar_1: string
+  Lugar_2: string
+  Lugar_3: string
   Cajas_Quedan: number | null
   totalCajas: number
   envios: StockEnvioRef[]
@@ -30,6 +38,7 @@ export type StockLnGroup = {
 export type StockBioGroup = {
   Codigo_BIO: string
   Nombre: string
+  splitTemps: boolean
   totalCajas: number
   lns: StockLnGroup[]
 }
@@ -48,6 +57,9 @@ export function parseStockExtras(row: Record<string, unknown>): StockExtras | nu
     Codigo_BIO: bio,
     LN: ln,
     Lugar: String(row.Lugar ?? "").trim(),
+    Lugar_1: String(row.Lugar_1 ?? "").trim(),
+    Lugar_2: String(row.Lugar_2 ?? "").trim(),
+    Lugar_3: String(row.Lugar_3 ?? "").trim(),
     Cajas_Quedan: quedan,
   }
 }
@@ -103,7 +115,8 @@ export function buildStockGroups(
   cajas: EnvioCajaRow[],
   extras: StockExtras[],
   envios: EnvioRow[],
-  catalogNombres: Record<string, string> = {}
+  catalogNombres: Record<string, string> = {},
+  catalogTipos: Record<string, CajaTipo> = {}
 ): StockBioGroup[] {
   const extraByKey = new Map(extras.map((e) => [stockKey(e.Codigo_BIO, e.LN), e]))
   const envioById = new Map(envios.map((e) => [e.id, e]))
@@ -156,10 +169,15 @@ export function buildStockGroups(
         }
       })
       .sort(compareStockEnvios)
+    const splitTemps = cajaTieneSubcajas(catalogTipos[g.Codigo_BIO] ?? null)
     const lnRow: StockLnGroup = {
       Codigo_BIO: g.Codigo_BIO,
       LN: g.LN,
+      splitTemps,
       Lugar: extra?.Lugar ?? "",
+      Lugar_1: extra?.Lugar_1 ?? "",
+      Lugar_2: extra?.Lugar_2 ?? "",
+      Lugar_3: extra?.Lugar_3 ?? "",
       Cajas_Quedan: extra?.Cajas_Quedan ?? null,
       totalCajas: g.total,
       envios: envioRefs,
@@ -173,6 +191,7 @@ export function buildStockGroups(
       bioMap.set(g.Codigo_BIO, {
         Codigo_BIO: g.Codigo_BIO,
         Nombre: String(catalogNombres[g.Codigo_BIO] ?? "").trim() || g.Nombre,
+        splitTemps,
         totalCajas: g.total,
         lns: [lnRow],
       })
@@ -195,12 +214,20 @@ export function filterStockGroups(groups: StockBioGroup[], query: string): Stock
       const bioHit =
         bio.Codigo_BIO.toLowerCase().includes(q) || bio.Nombre.toLowerCase().includes(q)
       if (bioHit) return bio
-      const lns = bio.lns.filter(
-        (ln) =>
+      const lns = bio.lns.filter((ln) => {
+        const subHits = SUBCAJA_TEMPS.some((temp) =>
+          subcajaCode(ln.Codigo_BIO, temp.sufijo).toLowerCase().includes(q)
+        )
+        return (
           ln.LN.toLowerCase().includes(q) ||
           ln.Lugar.toLowerCase().includes(q) ||
+          ln.Lugar_1.toLowerCase().includes(q) ||
+          ln.Lugar_2.toLowerCase().includes(q) ||
+          ln.Lugar_3.toLowerCase().includes(q) ||
+          subHits ||
           ln.envios.some((e) => e.Sales_Order.toLowerCase().includes(q))
-      )
+        )
+      })
       if (!lns.length) return null
       return { ...bio, lns, totalCajas: lns.reduce((n, ln) => n + ln.totalCajas, 0) }
     })
@@ -249,6 +276,20 @@ export function catalogNombresFromRows(
     const code = normalizeBioCode(String(row.Codigo_BIO ?? ""))
     const name = String(row.Nombre ?? "").trim()
     if (code && name) out[code] = name
+  }
+  return out
+}
+
+export function catalogTiposFromRows(
+  rows: Array<{ Codigo_BIO?: string; Tipo?: string }>
+): Record<string, CajaTipo> {
+  const out: Record<string, CajaTipo> = {}
+  for (const row of rows) {
+    const code = normalizeBioCode(String(row.Codigo_BIO ?? ""))
+    const tipo = row.Tipo
+    if (code && (tipo === "extraido" || tipo === "marcado" || tipo === "chip")) {
+      out[code] = tipo
+    }
   }
   return out
 }

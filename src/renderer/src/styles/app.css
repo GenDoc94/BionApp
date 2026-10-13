@@ -2495,3 +2495,18 @@ input[type="number"] {
   font-size: 0.7rem;
   color: var(--muted-foreground);
 }
+
+.bionapp-stock-subcajas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  flex: 1 1 18rem;
+}
+
+.bionapp-stock-subcaja__code {
+  display: inline-block;
+  margin-right: 0.35rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}

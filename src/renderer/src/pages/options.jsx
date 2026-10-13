@@ -10,11 +10,13 @@ import {
   Download,
   FileText,
   FolderOutput,
+  KeyRound,
   Loader2,
   Moon,
   PenLine,
   Plus,
   Save,
+  ScrollText,
   SquarePen,
   Sun,
   Tag,
@@ -33,12 +35,14 @@ import {
 import EstadisticasApiladas from "../components/options/EstadisticasApiladas";
 import DocumentosTab from "../components/options/DocumentosTab";
 import ExportacionTab from "../components/options/ExportacionTab";
+import RegistroTab from "../components/options/RegistroTab";
 import LanguageToggle from "../components/LanguageToggle";
 import { getStoredTheme, setTheme } from "../lib/theme";
 import SubpageShell from "../components/SubpageShell";
 import { buildBackToAppPath } from "../lib/navegacionMuestra";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import pkg from "bionapp-pkg";
@@ -50,6 +54,8 @@ import {
 } from "../lib/setupInicial";
 import { normalizeBioCode } from "../lib/bioCodes";
 import { CAJA_TIPOS } from "../lib/dCajas";
+import { canManageApp, canUseOptionsTab, isRole, ROLES } from "@shared/roles";
+import { translateIpcError } from "../i18n/ipcErrors";
 
 function clampText(s) {
   return (s ?? "").toString().trim();
@@ -80,6 +86,7 @@ function agrupacionNounKey(agrupacion) {
 
 function roleLabel(role, t) {
   if (role === "admin") return t("role.admin");
+  if (role === "tel") return t("role.tel");
   if (role === "user") return t("role.user");
   return t("role.unassigned");
 }
@@ -263,6 +270,7 @@ export default function Options() {
   const [dmuestra, setDMuestra] = useState([]);
   const [ddx, setDDx] = useState([]);
   const [dcajas, setDCajas] = useState([]);
+  const [dmaquinas, setDMaquinas] = useState([]);
   const [muestrasStats, setMuestrasStats] = useState([]);
   const [tags, setTags] = useState([]);
 
@@ -271,6 +279,7 @@ export default function Options() {
   const [newCajaBio, setNewCajaBio] = useState("");
   const [newCajaNombre, setNewCajaNombre] = useState("");
   const [newCajaTipo, setNewCajaTipo] = useState("marcado");
+  const [newApodo, setNewApodo] = useState("");
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#64748b");
 
@@ -289,6 +298,12 @@ export default function Options() {
   const [themeMode, setThemeMode] = useState(() => getStoredTheme());
   const [activeTab, setActiveTab] = useState(setupFromUrl ? "variables" : "perfil");
   const [variablesSubTab, setVariablesSubTab] = useState("dmuestra");
+  const [users, setUsers] = useState([]);
+  const [savingUserId, setSavingUserId] = useState(null);
+  const [currentMasterCode, setCurrentMasterCode] = useState("");
+  const [newMasterCode, setNewMasterCode] = useState("");
+  const [confirmMasterCode, setConfirmMasterCode] = useState("");
+  const [savingMasterCode, setSavingMasterCode] = useState(false);
 
   const setupInicial =
     setupFromUrl || getSetupPhase() === SETUP_PENDING_CATALOGS;
@@ -348,7 +363,9 @@ export default function Options() {
         setDMuestra([]);
         setDDx([]);
         setDCajas([]);
+        setDMaquinas([]);
         setMuestrasStats([]);
+        setUsers([]);
         return;
       }
 
@@ -361,32 +378,62 @@ export default function Options() {
       if (profileErr) throw profileErr;
       const role = profile?.role ?? null;
       setUserRole(role);
-      setIsAdmin(role === "admin");
+      setIsAdmin(canManageApp(role));
 
       const [
         { data: dm, error: dmErr },
         { data: dx, error: dxErr },
         { data: cajas, error: cajasErr },
+        { data: maqs, error: maqsErr },
         { data: muestras, error: muestrasErr },
         { data: tagsData, error: tagsErr },
       ] = await Promise.all([
         supabase.from("DMuestra").select("Cod, TipoMuestra").order("Cod", { ascending: true }),
         supabase.from("DDx").select("Cod, Dx").order("Cod", { ascending: true }),
         supabase.from("DCajas").select("Codigo_BIO, Nombre, Tipo").order("Codigo_BIO", { ascending: true }),
+        supabase.from("DMaquinas").select("Cod, Apodo").order("Cod", { ascending: true }),
         supabase.from("Muestras").select("Fecha, Estado_Muestra, Muestra, Dx"),
         supabase.from("Tags").select("Tag_Number, Tag_Name, Tag_Color").order("Tag_Number", { ascending: true }),
       ]);
       if (dmErr) throw dmErr;
       if (dxErr) throw dxErr;
       if (cajasErr) throw cajasErr;
+      if (maqsErr) throw maqsErr;
       if (muestrasErr) throw muestrasErr;
       if (tagsErr) throw tagsErr;
 
       setDMuestra(dm ?? []);
       setDDx(dx ?? []);
       setDCajas(cajas ?? []);
+      setDMaquinas(maqs ?? []);
       setMuestrasStats(muestras ?? []);
       setTags(tagsData ?? []);
+      if (canManageApp(role)) {
+        let listedUsers = [];
+        if (window.api?.listUsers) {
+          try {
+            const listed = await window.api.listUsers();
+            if (listed?.ok) listedUsers = listed.users ?? [];
+          } catch (listErr) {
+            console.error(listErr);
+          }
+        }
+        if (!listedUsers.length) {
+          const { data: profileRows, error: usersErr } = await supabase
+            .from("profiles")
+            .select("id, username, role")
+            .order("username", { ascending: true });
+          if (usersErr) throw usersErr;
+          listedUsers = (profileRows ?? []).map((row) => ({
+            id: row.id,
+            email: row.username,
+            role: row.role,
+          }));
+        }
+        setUsers(listedUsers);
+      } else {
+        setUsers([]);
+      }
     } catch (e) {
       console.error(e);
       setErrorMsg(e?.message ?? t("options.err.load"));
@@ -399,6 +446,77 @@ export default function Options() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!userRole) return;
+    if (!canUseOptionsTab(userRole, activeTab)) setActiveTab("perfil");
+  }, [userRole, activeTab]);
+
+  const handleChangeUserRole = async (userId, nextRole) => {
+    if (!isRole(nextRole)) return;
+    if (!window.api?.setUserRole) {
+      toast.error(t("auth.err.adminOnlyRoles"));
+      return;
+    }
+    setSavingUserId(userId);
+    try {
+      const result = await window.api.setUserRole(userId, nextRole);
+      if (!result?.ok) {
+        toast.error(translateIpcError(result?.error));
+        return;
+      }
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: nextRole } : u))
+      );
+      const changed = users.find((u) => u.id === userId);
+      if (changed && userEmail && String(changed.email).toLowerCase() === String(userEmail).toLowerCase()) {
+        setUserRole(nextRole);
+        setIsAdmin(canManageApp(nextRole));
+      }
+      toast.success(t("options.profile.roleUpdated", { email: changed?.email ?? "" }));
+    } catch (e) {
+      console.error(e);
+      toast.error(e?.message ?? t("options.err.saveCatalog"));
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleChangeMasterCode = async (e) => {
+    e?.preventDefault?.();
+    const current = currentMasterCode.trim();
+    const next = newMasterCode.trim();
+    const confirm = confirmMasterCode.trim();
+    if (!current || !next || !confirm) {
+      toast.error(t("options.profile.masterCodeIncomplete"));
+      return;
+    }
+    if (next !== confirm) {
+      toast.error(t("setup.mismatch"));
+      return;
+    }
+    if (!window.api?.changeAdminCode) {
+      toast.error(t("auth.err.adminOnlyMasterCode"));
+      return;
+    }
+    setSavingMasterCode(true);
+    try {
+      const result = await window.api.changeAdminCode(current, next);
+      if (!result?.ok) {
+        toast.error(translateIpcError(result?.error));
+        return;
+      }
+      setCurrentMasterCode("");
+      setNewMasterCode("");
+      setConfirmMasterCode("");
+      toast.success(t("options.profile.masterCodeUpdated"));
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.message ?? t("options.err.saveCatalog"));
+    } finally {
+      setSavingMasterCode(false);
+    }
+  };
 
   const addDMuestra = async () => {
     const text = clampText(newTipoMuestra);
@@ -464,6 +582,12 @@ export default function Options() {
         const { error } = await supabase
           .from("DMuestra")
           .update({ TipoMuestra: text })
+          .eq("Cod", catalogEdit.cod);
+        if (error) throw error;
+      } else if (catalogEdit.kind === "dmaquinas") {
+        const { error } = await supabase
+          .from("DMaquinas")
+          .update({ Apodo: text })
           .eq("Cod", catalogEdit.cod);
         if (error) throw error;
       } else if (catalogEdit.kind === "dcajas") {
@@ -552,6 +676,63 @@ export default function Options() {
     } catch (e) {
       console.error(e);
       setErrorMsg(e?.message ?? t("options.err.deleteCatalog"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteDMaquina = async (cod) => {
+    const maxCod = dmaquinas.reduce((max, r) => Math.max(max, Number(r.Cod) || 0), 0);
+    if (Number(cod) !== maxCod) {
+      toast.error(t("options.toast.deleteLastOnly"));
+      return;
+    }
+
+    setSaving(true);
+    setErrorMsg(null);
+    try {
+      const { error } = await supabase.from("DMaquinas").delete().eq("Cod", cod);
+      if (error) throw error;
+
+      if (catalogEdit?.kind === "dmaquinas" && catalogEdit.cod === cod) {
+        cancelCatalogEdit();
+      }
+      await loadAll();
+      toast.success(t("options.toast.lastDeleted"));
+    } catch (e) {
+      console.error(e);
+      setErrorMsg(e?.message ?? t("options.err.deleteCatalog"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addDMaquina = async () => {
+    const text = clampText(newApodo);
+    if (!text) return;
+
+    setSaving(true);
+    setErrorMsg(null);
+    try {
+      const { data: last, error: lastErr } = await supabase
+        .from("DMaquinas")
+        .select("Cod")
+        .order("Cod", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (lastErr) throw lastErr;
+
+      const nextCod = (last?.Cod ? Number(last.Cod) : 0) + 1;
+
+      const { error: insErr } = await supabase.from("DMaquinas").insert([{ Cod: nextCod, Apodo: text }]);
+      if (insErr) throw insErr;
+
+      setNewApodo("");
+      setVariablesSubTab("dmaquinas");
+      await loadAll();
+    } catch (e) {
+      console.error(e);
+      setErrorMsg(e?.message ?? t("options.err.addMachine"));
     } finally {
       setSaving(false);
     }
@@ -684,7 +865,8 @@ export default function Options() {
       if (error) throw error;
       setNewTagName("");
       setNewTagColor("#64748b");
-      setActiveTab("etiquetas");
+      setActiveTab("variables");
+      setVariablesSubTab("tags");
       await loadAll({ silent: true });
       toast.success(t("options.toast.tagAdded"));
     } catch (e) {
@@ -712,7 +894,8 @@ export default function Options() {
         .eq("Tag_Number", tagEditNumber);
       if (error) throw error;
       cancelEditTag();
-      setActiveTab("etiquetas");
+      setActiveTab("variables");
+      setVariablesSubTab("tags");
       await loadAll({ silent: true });
       toast.success(t("options.toast.tagUpdated"));
     } catch (e) {
@@ -733,7 +916,8 @@ export default function Options() {
       const { error } = await supabase.from("Tags").delete().eq("Tag_Number", tagNumber);
       if (error) throw error;
       if (tagEditNumber === tagNumber) cancelEditTag();
-      setActiveTab("etiquetas");
+      setActiveTab("variables");
+      setVariablesSubTab("tags");
       await loadAll({ silent: true });
       toast.success(t("options.toast.tagDeleted"));
     } catch (e) {
@@ -768,6 +952,8 @@ export default function Options() {
         <TabsTrigger value="dmuestra">{t("options.vars.sampleTypes")}</TabsTrigger>
         <TabsTrigger value="ddx">{t("options.vars.diagnoses")}</TabsTrigger>
         <TabsTrigger value="dcajas">{t("options.vars.boxes")}</TabsTrigger>
+        <TabsTrigger value="dmaquinas">{t("options.vars.machines")}</TabsTrigger>
+        <TabsTrigger value="tags">{t("options.tab.tags")}</TabsTrigger>
       </TabsList>
 
       <TabsContent value="dmuestra" className="space-y-4">
@@ -1046,18 +1232,74 @@ export default function Options() {
           </div>
         </div>
       </TabsContent>
-    </Tabs>
-  );
 
-  const tagsContent = !isAdmin ? (
-    <div className="bionapp-panel p-4">
-      <div className="font-semibold mb-1">{t("options.restricted.title")}</div>
-      <div className="text-sm text-slate-600 dark:text-slate-300">
-        {t("options.restricted.tags")}
-      </div>
-    </div>
-  ) : (
-    <div className="space-y-4">
+      <TabsContent value="dmaquinas" className="space-y-4">
+        <div className="bionapp-panel p-4">
+          <div className="font-semibold mb-2">{t("options.vars.addMachine")}</div>
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="min-w-[260px] flex-1">
+              <div className="text-xs text-slate-500 mb-1">{t("options.vars.machineHint")}</div>
+              <Input
+                value={newApodo}
+                onChange={(e) => setNewApodo(e.target.value)}
+                placeholder={t("options.vars.machinePlaceholder")}
+              />
+            </div>
+            <Button onClick={addDMaquina} disabled={saving || !clampText(newApodo)}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {t("common.add")}
+            </Button>
+          </div>
+          <div className="text-xs text-slate-500 mt-2">
+            {t("options.vars.machineDeleteHint")}
+          </div>
+        </div>
+
+        <div className="bionapp-panel p-4">
+          <div className="font-semibold mb-3">{t("options.list.current")}</div>
+          <div className="overflow-auto">
+            <table className="min-w-[520px] w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left border-b border-border">
+                  <th className="py-2 pr-3 w-28">Cod</th>
+                  <th className="py-2 pr-3">{t("options.col.nickname")}</th>
+                  <th className="py-2 pr-3 w-28">{t("options.col.actions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dmaquinas.map((r) => {
+                  const lastCod = dmaquinas.reduce((max, row) => Math.max(max, Number(row.Cod) || 0), 0);
+                  return (
+                  <CatalogRow
+                    key={r.Cod}
+                    cod={r.Cod}
+                    text={r.Apodo}
+                    isEditing={catalogEdit?.kind === "dmaquinas" && catalogEdit.cod === r.Cod}
+                    editText={catalogEditText}
+                    onEditTextChange={setCatalogEditText}
+                    onStartEdit={() => startCatalogEdit("dmaquinas", r.Cod, r.Apodo)}
+                    onCancelEdit={cancelCatalogEdit}
+                    onSave={saveCatalogEdit}
+                    onDelete={() => deleteDMaquina(r.Cod)}
+                    canDelete={Number(r.Cod) === lastCod}
+                    saving={saving}
+                  />
+                  );
+                })}
+                {!dmaquinas.length ? (
+                  <tr>
+                    <td className="py-2 pr-3 text-slate-500" colSpan={3}>
+                      {t("options.empty.values")}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="tags" className="space-y-4" tabIndex={-1}>
       <div className="bionapp-panel p-4">
         <div className="font-semibold mb-2">{t("options.tags.add")}</div>
         <div className="flex flex-wrap items-end gap-2">
@@ -1236,7 +1478,8 @@ export default function Options() {
           </table>
         </div>
       </div>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 
   return (
@@ -1273,32 +1516,40 @@ export default function Options() {
       ) : null}
 
       {!loading ? (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(tab) => {
+            if (!userRole || canUseOptionsTab(userRole, tab)) setActiveTab(tab);
+          }}
+          className="gap-4"
+        >
           <TabsList className="flex flex-wrap h-auto gap-1">
             <TabsTrigger value="perfil" className="gap-1.5">
               <UserRound className="h-4 w-4" />
               {t("options.tab.profile")}
             </TabsTrigger>
+            {canUseOptionsTab(userRole, "variables") ? (
             <TabsTrigger value="variables" className="gap-1.5">
               <Database className="h-4 w-4" />
               {t("options.tab.variables")}
             </TabsTrigger>
-            <TabsTrigger value="etiquetas" className="gap-1.5">
-              <Tag className="h-4 w-4" />
-              {t("options.tab.tags")}
-            </TabsTrigger>
+            ) : null}
+            {canUseOptionsTab(userRole, "estadisticas") ? (
             <TabsTrigger value="estadisticas" className="gap-1.5">
               <BarChart3 className="h-4 w-4" />
               {t("options.tab.stats")}
             </TabsTrigger>
+            ) : null}
             <TabsTrigger value="documentos" className="gap-1.5">
               <FileText className="h-4 w-4" />
               {t("options.tab.docs")}
             </TabsTrigger>
+            {canUseOptionsTab(userRole, "exportacion") ? (
             <TabsTrigger value="exportacion" className="gap-1.5">
               <FolderOutput className="h-4 w-4" />
               {t("options.tab.export")}
             </TabsTrigger>
+            ) : null}
             <TabsTrigger value="apariencia" className="gap-1.5">
               <Sun className="h-4 w-4" />
               {t("options.tab.appearance")}
@@ -1311,6 +1562,12 @@ export default function Options() {
               <PenLine className="h-4 w-4" />
               {t("options.tab.authorship")}
             </TabsTrigger>
+            {canUseOptionsTab(userRole, "registro") ? (
+            <TabsTrigger value="registro" className="gap-1.5">
+              <ScrollText className="h-4 w-4" />
+              {t("options.tab.log")}
+            </TabsTrigger>
+            ) : null}
           </TabsList>
 
           <TabsContent value="perfil">
@@ -1328,9 +1585,118 @@ export default function Options() {
                   ) : null}
                 </div>
               </div>
-              <p className="text-xs text-slate-500">
-                {t("options.profile.roleLocked")}
-              </p>
+              {isAdmin ? (
+                <div className="pt-2 border-t border-border space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold">{t("options.profile.users")}</p>
+                    <p className="text-xs text-slate-500 mt-1">{t("options.profile.usersHelp")}</p>
+                  </div>
+                  <div className="overflow-auto">
+                    <table className="min-w-[420px] w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="text-left border-b border-border">
+                          <th className="py-2 pr-3">{t("options.profile.email")}</th>
+                          <th className="py-2 pr-3">{t("options.profile.role")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((u) => (
+                          <tr key={u.id} className="border-b border-border/60">
+                            <td className="py-2 pr-3 break-all">{u.email}</td>
+                            <td className="py-2 pr-3">
+                              <select
+                                value={u.role}
+                                disabled={savingUserId === u.id}
+                                onChange={(e) => void handleChangeUserRole(u.id, e.target.value)}
+                                className="h-8 text-sm border border-input rounded-md px-2 bg-background min-w-[160px]"
+                              >
+                                {ROLES.map((r) => (
+                                  <option key={r} value={r}>
+                                    {roleLabel(r, t)}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                        {!users.length ? (
+                          <tr>
+                            <td className="py-2 pr-3 text-slate-500" colSpan={2}>
+                              {t("options.empty.values")}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                  <form className="pt-2 border-t border-border space-y-3" onSubmit={handleChangeMasterCode}>
+                    <div>
+                      <p className="text-sm font-semibold flex items-center gap-1.5">
+                        <KeyRound className="h-4 w-4" />
+                        {t("options.profile.masterCode")}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">{t("options.profile.masterCodeHelp")}</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="master-current" className="text-xs">
+                          {t("options.profile.masterCodeCurrent")}
+                        </Label>
+                        <Input
+                          id="master-current"
+                          type="password"
+                          autoComplete="off"
+                          value={currentMasterCode}
+                          onChange={(ev) => setCurrentMasterCode(ev.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="master-new" className="text-xs">
+                          {t("options.profile.masterCodeNew")}
+                        </Label>
+                        <Input
+                          id="master-new"
+                          type="password"
+                          autoComplete="off"
+                          value={newMasterCode}
+                          onChange={(ev) => setNewMasterCode(ev.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="master-confirm" className="text-xs">
+                          {t("options.profile.masterCodeConfirm")}
+                        </Label>
+                        <Input
+                          id="master-confirm"
+                          type="password"
+                          autoComplete="off"
+                          value={confirmMasterCode}
+                          onChange={(ev) => setConfirmMasterCode(ev.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      className="bionapp-btn-green"
+                      disabled={savingMasterCode}
+                    >
+                      {savingMasterCode ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        t("options.profile.masterCodeSave")
+                      )}
+                    </Button>
+                  </form>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  {t("options.profile.roleLocked")}
+                </p>
+              )}
             </div>
           </TabsContent>
 
@@ -1552,10 +1918,6 @@ export default function Options() {
 
           <TabsContent value="variables">{variablesContent}</TabsContent>
 
-          <TabsContent value="etiquetas" tabIndex={-1}>
-            {tagsContent}
-          </TabsContent>
-
           <TabsContent value="apariencia">
             <div className="bionapp-panel p-4 space-y-4">
               <div>
@@ -1753,6 +2115,10 @@ export default function Options() {
                 <p>{t("credits.thanks.body")}</p>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="registro">
+            <RegistroTab />
           </TabsContent>
         </Tabs>
       ) : null}

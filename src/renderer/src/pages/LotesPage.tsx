@@ -106,7 +106,7 @@ function LotesPage({ embedded = false }: LotesPageProps) {
       supabase
         .from("Lecturas_Marcado")
         .select("NumBN_LM, NumLectura_LM, NumLectMarc, Id_LtM, Id_LtMm, Media_LM, Izq_LM, Dcha_LM"),
-      supabase.from("DChips").select("NumChip_D, Nombre_Chip, Id_LtC"),
+      supabase.from("DChips").select("NumChip_D, Nombre_Chip, Id_LtC, Id_Maquina"),
       supabase.from("Chips").select("NumChip, FC, NumBN_C, Repetir_Chip"),
       supabase.from("Envios").select("Id_Envio, Sales_Order, Fecha_Llegada, Fecha_Envio"),
       supabase.from("Envio_Cajas").select("*"),
@@ -196,6 +196,7 @@ function LotesPage({ embedded = false }: LotesPageProps) {
           Id_LtC?: unknown;
           NumChip_D?: unknown;
           Nombre_Chip?: unknown;
+          Apodo?: unknown;
         }>,
         (chipsAsigRes.data || []) as Array<{
           NumChip?: unknown;
@@ -734,10 +735,13 @@ function LotesPage({ embedded = false }: LotesPageProps) {
                             "bionapp-lote-uso-btn",
                             usoEstadoClass(loteChipEstadoColor(uso.fcColors), showEstados)
                           )}
-                          title={uso.Nombre_Chip || undefined}
+                          title={
+                            [uso.Nombre_Chip, uso.Apodo].filter(Boolean).join(" · ") || undefined
+                          }
                           onClick={() => handleOpenChip(uso.NumChip)}
                         >
                           Chip {uso.NumChip}
+                          {uso.Apodo ? ` · ${uso.Apodo}` : ""}
                         </button>
                       ))}
                     </div>

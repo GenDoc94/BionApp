@@ -268,6 +268,31 @@ export function attachLotFields(db: Database.Database, table: string, rows: Reco
       row.Exp = lot?.Exp ?? null
     })
   }
+  attachMaquinaFields(db, table, rows)
+}
+
+function attachMaquinaFields(
+  db: Database.Database,
+  table: string,
+  rows: Record<string, unknown>[]
+): void {
+  if (table !== 'DChips' || !rows.length) return
+  if (!tableHasColumn(db, 'DChips', 'Id_Maquina') || !tableExists(db, 'DMaquinas')) return
+  const ids = [
+    ...new Set(rows.map((r) => r.Id_Maquina).filter((v) => v != null).map((v) => Number(v)))
+  ].filter((n) => Number.isFinite(n))
+  const maqs = new Map<number, string>()
+  if (ids.length) {
+    const placeholders = ids.map(() => '?').join(',')
+    const found = db
+      .prepare(`SELECT Cod, Apodo FROM DMaquinas WHERE Cod IN (${placeholders})`)
+      .all(...ids) as Array<{ Cod: number; Apodo: string }>
+    for (const maq of found) maqs.set(Number(maq.Cod), String(maq.Apodo ?? '').trim())
+  }
+  for (const row of rows) {
+    const id = row.Id_Maquina == null ? null : Number(row.Id_Maquina)
+    row.Apodo = id == null || !Number.isFinite(id) ? null : maqs.get(id) || null
+  }
 }
 
 export function applyLotWrite(
@@ -321,6 +346,9 @@ export function applyLotWrite(
       delete next.LNM_LM
       delete next.ExpM_LM
     }
+  }
+  if (table === 'DChips') {
+    delete next.Apodo
   }
   if (table === 'DChips' && tableHasColumn(db, 'DChips', 'Id_LtC')) {
     if ('PN' in next || 'LN' in next || 'Exp' in next) {
@@ -549,6 +577,18 @@ export function ensureLotesChipsSchema(db: Database.Database): void {
   db.exec(`CREATE INDEX IF NOT EXISTS DChips_Id_LtC_idx ON DChips(Id_LtC);`)
 }
 
+/** Catálogo de máquinas Saphyr (Cod + apodo) y FK inferencial DChips.Id_Maquina. Idempotente. */
+export function ensureDMaquinasSchema(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS DMaquinas (
+      Cod INTEGER PRIMARY KEY,
+      Apodo TEXT NOT NULL
+    );
+  `)
+  addFkColumnIfMissing(db, 'DChips', 'Id_Maquina', 'DMaquinas', 'Cod')
+  db.exec(`CREATE INDEX IF NOT EXISTS DChips_Id_Maquina_idx ON DChips(Id_Maquina);`)
+}
+
 /** Catálogo de envíos, líneas de cajas (BIO+LN) y stock. Idempotente. */
 export function ensureEnviosSchema(db: Database.Database): void {
   db.exec(`
@@ -576,10 +616,18 @@ export function ensureEnviosSchema(db: Database.Database): void {
       Codigo_BIO TEXT NOT NULL,
       LN TEXT NOT NULL,
       Lugar TEXT NOT NULL DEFAULT '',
+      Lugar_1 TEXT NOT NULL DEFAULT '',
+      Lugar_2 TEXT NOT NULL DEFAULT '',
+      Lugar_3 TEXT NOT NULL DEFAULT '',
       Cajas_Quedan INTEGER,
       PRIMARY KEY (Codigo_BIO, LN)
     );
   `)
+  for (const col of ['Lugar_1', 'Lugar_2', 'Lugar_3'] as const) {
+    if (!tableHasColumn(db, 'Stock', col)) {
+      db.exec(`ALTER TABLE Stock ADD COLUMN "${col}" TEXT NOT NULL DEFAULT ''`)
+    }
+  }
   addFkColumnIfMissing(db, LOTE_TABLE.extraido, 'Id_Envio', 'Envios', 'Id_Envio')
   addFkColumnIfMissing(db, LOTE_TABLE.marcado, 'Id_Envio', 'Envios', 'Id_Envio')
   addFkColumnIfMissing(db, LOTE_TABLE.membrana, 'Id_Envio', 'Envios', 'Id_Envio')

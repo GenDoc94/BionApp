@@ -117,8 +117,9 @@ export default function CreateUser() {
                   onChange={(e) => setRole(e.target.value)}
                   className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
                 >
-                  <option value="user">user</option>
-                  <option value="admin">admin</option>
+                  <option value="user">{t("role.user")}</option>
+                  <option value="tel">{t("role.tel")}</option>
+                  <option value="admin">{t("role.admin")}</option>
                 </select>
                 <p className="text-[11px] text-muted-foreground leading-snug">
                   {t("createUser.roleHelp")}

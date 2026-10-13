@@ -12,6 +12,13 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/preload/index.ts')
+        }
+      }
+    },
     resolve: {
       extensions: ['.ts', '.js', '.json']
     }

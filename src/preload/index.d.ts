@@ -13,6 +13,12 @@ declare const api: {
     getSession: () => Promise<any>;
     getUser: () => Promise<any>;
     getSessionRole: () => Promise<Role | null>;
+    listUsers: () => Promise<
+        | { ok: true; users: Array<{ id: string; email: string; role: Role }> }
+        | { ok: false; error: string; users: [] }
+    >;
+    setUserRole: (id: string, role: Role) => Promise<{ ok: true } | { ok: false; error: string }>;
+    changeAdminCode: (currentCode: string, nextCode: string) => Promise<{ ok: true } | { ok: false; error: string }>;
     createUserFn: (method: string, body?: unknown) => Promise<any>;
     dbRequest: (req: DbRequest) => Promise<DbResponse>;
     exportDatabase: (format: ExportFormat, tables?: readonly string[]) => Promise<ExportResult>;

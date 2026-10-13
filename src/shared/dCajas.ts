@@ -53,3 +53,22 @@ export function lotTiposForCajaTipo(tipo: CajaTipo): CajaLotTipo[] {
   if (tipo === "chip") return ["chip"]
   return ["extraido"]
 }
+
+export const SUBCAJA_SUFIJOS = [1, 2, 3] as const
+export type SubcajaSufijo = (typeof SUBCAJA_SUFIJOS)[number]
+
+export type SubcajaTempId = "ambiente" | "nevera" | "congelador"
+
+export const SUBCAJA_TEMPS: readonly {
+  sufijo: SubcajaSufijo
+  id: SubcajaTempId
+}[] = [
+  { sufijo: 1, id: "ambiente" },
+  { sufijo: 2, id: "nevera" },
+  { sufijo: 3, id: "congelador" },
+]
+
+/** Extracción y marcaje: 3 subcajas de temperatura. Los chips no se parten. */
+export function cajaTieneSubcajas(tipo: CajaTipo | null | undefined): boolean {
+  return tipo !== "chip"
+}

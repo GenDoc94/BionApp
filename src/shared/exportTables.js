@@ -4,6 +4,7 @@ export const EXPORT_TABLES = [
     'DDx',
     'DCajas',
     'DChips',
+    'DMaquinas',
     'Tags',
     'Lotes_Extraido',
     'Lotes_Marcado',
@@ -20,10 +21,11 @@ export const EXPORT_TABLES = [
     'Chips',
     'Preselect',
     'Muestra_Tags',
-    'profiles'
+    'profiles',
+    'Registro'
 ];
 export const EXPORT_TABLE_GROUPS = [
-    { id: 'catalog', tables: ['DMuestra', 'DDx', 'DCajas', 'DChips', 'Tags'] },
+    { id: 'catalog', tables: ['DMuestra', 'DDx', 'DCajas', 'DChips', 'DMaquinas', 'Tags'] },
     { id: 'lots', tables: ['Lotes_Extraido', 'Lotes_Marcado', 'Lotes_Membrana', 'Lotes_Chips'] },
     { id: 'shipments', tables: ['Envios', 'Envio_Cajas', 'Stock'] },
     {
@@ -39,7 +41,8 @@ export const EXPORT_TABLE_GROUPS = [
             'Muestra_Tags'
         ]
     },
-    { id: 'users', tables: ['profiles'] }
+    { id: 'users', tables: ['profiles'] },
+    { id: 'log', tables: ['Registro'] }
 ];
 var EXPORT_TABLE_SET = new Set(EXPORT_TABLES);
 export function isExportTable(name) {

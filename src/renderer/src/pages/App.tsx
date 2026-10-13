@@ -11,7 +11,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
-import { Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Save, X, Plus, Minus, Cpu, ClipboardList, LogOut, CircleDot, Loader2, ArrowDownToLine, Calculator, CircleEllipsis, TriangleAlert, RefreshCw, MessageSquare, Pickaxe, Tag, ChevronDown, BadgeCheck, User, ShieldCheck } from "lucide-react";
+import { Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Save, X, Plus, Minus, Cpu, ClipboardList, LogOut, CircleDot, Loader2, ArrowDownToLine, Calculator, CircleEllipsis, TriangleAlert, RefreshCw, MessageSquare, Pickaxe, Tag, ChevronDown, BadgeCheck, User, ShieldCheck, FlaskConical } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -36,6 +36,7 @@ import {
   mediaMarcadoSemaforoClass,
 } from "../lib/calculations/lecturaCalculos";
 import { withNetworkRetry } from "../lib/fetchWithRetry";
+import { canEditData, canOpenOptions } from "@shared/roles";
 import {
   applyMuestraNavegacion,
   parseMuestraNavegacionFromSearchParams,
@@ -121,6 +122,7 @@ function App() {
   const [tiposMuestra, setTiposMuestra] = useState([]);
   const [dxs, setDxs] = useState([]);
   const [dChips, setDChips] = useState([]);
+  const [maquinas, setMaquinas] = useState([]);
   const [lotesExtraido, setLotesExtraido] = useState<LoteRow[]>([]);
   const [lotesMarcado, setLotesMarcado] = useState<LoteRow[]>([]);
   const [lotesMembrana, setLotesMembrana] = useState<LoteRow[]>([]);
@@ -293,10 +295,11 @@ function App() {
         { data: lotesEData, error: lotesEError },
         { data: lotesMData, error: lotesMError },
         { data: lotesMmData, error: lotesMmError },
+        { data: maqData, error: maqError },
       ] = await Promise.all([
         supabase
           .from("DChips")
-          .select("NumChip_D, Nombre_Chip")
+          .select("NumChip_D, Nombre_Chip, Id_Maquina")
           .order("NumChip_D", { ascending: true }),
         supabase
           .from("DMuestra")
@@ -306,6 +309,7 @@ function App() {
         supabase.from("Lotes_Extraido").select("*"),
         supabase.from("Lotes_Marcado").select("*"),
         supabase.from("Lotes_Membrana").select("*"),
+        supabase.from("DMaquinas").select("Cod, Apodo").order("Cod", { ascending: true }),
       ]);
 
       if (chipsError) throw chipsError;
@@ -314,8 +318,10 @@ function App() {
       if (lotesEError) throw lotesEError;
       if (lotesMError) throw lotesMError;
       if (lotesMmError) throw lotesMmError;
+      if (maqError) throw maqError;
 
       setDChips(chipsData ?? []);
+      setMaquinas(maqData ?? []);
       setTiposMuestra(tiposData ?? []);
       setDxs(dxData ?? []);
       setLotesExtraido(
@@ -1996,6 +2002,7 @@ function App() {
                       </div>,
                       document.body
                     )}
+                  {canEditData(userRole) ? (
                   <Button
                     type="button"
                     onClick={handleAddMuestra}
@@ -2005,6 +2012,7 @@ function App() {
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -2024,20 +2032,26 @@ function App() {
                   title={
                     userRole === "admin"
                       ? t("role.admin")
-                      : userRole === "user"
-                        ? t("role.user")
-                        : t("role.unassigned")
+                      : userRole === "tel"
+                        ? t("role.tel")
+                        : userRole === "user"
+                          ? t("role.user")
+                          : t("role.unassigned")
                   }
                   aria-label={
                     userRole === "admin"
                       ? t("role.admin")
-                      : userRole === "user"
-                        ? t("role.user")
-                        : t("role.unassigned")
+                      : userRole === "tel"
+                        ? t("role.tel")
+                        : userRole === "user"
+                          ? t("role.user")
+                          : t("role.unassigned")
                   }
                 >
                   {userRole === "admin" ? (
                     <ShieldCheck className="bionapp-header-role-icon" size={16} strokeWidth={2.25} />
+                  ) : userRole === "tel" ? (
+                    <FlaskConical className="bionapp-header-role-icon" size={16} strokeWidth={2.25} />
                   ) : (
                     <User className="bionapp-header-role-icon" size={16} strokeWidth={2.25} />
                   )}
@@ -2107,7 +2121,7 @@ function App() {
                 >
                   <Calculator className="h-5 w-5 text-white" />
                 </Button>
-                {userRole === "admin" && (
+                {canOpenOptions(userRole) && (
                   <Button
                     onClick={() => navigateFromBase("/options")}
                     size="sm"
@@ -2120,7 +2134,7 @@ function App() {
                 </>
               )}
 
-              {(userRole === "admin" || isSetupPendingSample()) &&
+              {(canEditData(userRole) || isSetupPendingSample()) &&
                 (!editMode ? (
                     <Button
                       onClick={toggleEditMode}
@@ -3031,6 +3045,9 @@ function App() {
                                       Number(chipOpt.NumChip_D),
                                       asignacionesChip
                                     );
+                                    const maq = maquinas.find(
+                                      (m) => Number(m.Cod) === Number(chipOpt.Id_Maquina)
+                                    );
                                     return (
                                       <option
                                         key={chipOpt.NumChip_D}
@@ -3043,6 +3060,7 @@ function App() {
                                             ? t("chips.fc.noneFree")
                                             : t("chips.fc.someFree", { slots: libres.join(", ") })}
                                         )
+                                        {maq?.Apodo ? ` · ${maq.Apodo}` : ""}
                                       </option>
                                     );
                                   })}

@@ -101,3 +101,53 @@ export function fcYaOcupado(
 ): boolean {
   return !fcLibresParaChip(numChip, asignaciones, excluir).includes(fc);
 }
+
+export type ChipFcSlot = {
+  numChip: number;
+  fc: number;
+};
+
+export function chipFcSlotKey(slot: ChipFcSlot): string {
+  return `${slot.numChip}:${slot.fc}`;
+}
+
+export function parseChipFcSlotKey(value: string): ChipFcSlot | null {
+  const m = String(value ?? "").match(/^(\d+):([123])$/);
+  if (!m) return null;
+  return { numChip: Number(m[1]), fc: Number(m[2]) };
+}
+
+/** Huecos FC libres de varios chips, en orden de número (o el preferido primero). */
+export function collectFreeChipSlots(
+  chipNums: number[],
+  asignaciones: ChipAsignacionRow[],
+  preferFirst?: number
+): ChipFcSlot[] {
+  const unique = [...new Set(chipNums.filter((n) => Number.isFinite(n) && n > 0))];
+  unique.sort((a, b) => {
+    if (preferFirst != null) {
+      if (a === preferFirst) return -1;
+      if (b === preferFirst) return 1;
+    }
+    return a - b;
+  });
+  const out: ChipFcSlot[] = [];
+  for (const numChip of unique) {
+    for (const fc of fcLibresParaChip(numChip, asignaciones)) {
+      out.push({ numChip, fc });
+    }
+  }
+  return out;
+}
+
+export function autoFillChipAssignments(
+  itemKeys: string[],
+  slots: ChipFcSlot[]
+): Record<string, ChipFcSlot> {
+  const next: Record<string, ChipFcSlot> = {};
+  itemKeys.forEach((key, i) => {
+    const slot = slots[i];
+    if (slot) next[key] = slot;
+  });
+  return next;
+}

@@ -6,6 +6,7 @@ export const EXPORT_TABLES = [
   'DDx',
   'DCajas',
   'DChips',
+  'DMaquinas',
   'Tags',
   'Lotes_Extraido',
   'Lotes_Marcado',
@@ -22,12 +23,13 @@ export const EXPORT_TABLES = [
   'Chips',
   'Preselect',
   'Muestra_Tags',
-  'profiles'
+  'profiles',
+  'Registro'
 ] as const
 
 export type ExportTableName = (typeof EXPORT_TABLES)[number]
 
-export type ExportTableGroupId = 'catalog' | 'lots' | 'shipments' | 'samples' | 'users'
+export type ExportTableGroupId = 'catalog' | 'lots' | 'shipments' | 'samples' | 'users' | 'log'
 
 export type ExportTableGroup = {
   id: ExportTableGroupId
@@ -35,7 +37,7 @@ export type ExportTableGroup = {
 }
 
 export const EXPORT_TABLE_GROUPS: readonly ExportTableGroup[] = [
-  { id: 'catalog', tables: ['DMuestra', 'DDx', 'DCajas', 'DChips', 'Tags'] },
+  { id: 'catalog', tables: ['DMuestra', 'DDx', 'DCajas', 'DChips', 'DMaquinas', 'Tags'] },
   { id: 'lots', tables: ['Lotes_Extraido', 'Lotes_Marcado', 'Lotes_Membrana', 'Lotes_Chips'] },
   { id: 'shipments', tables: ['Envios', 'Envio_Cajas', 'Stock'] },
   {
@@ -51,7 +53,8 @@ export const EXPORT_TABLE_GROUPS: readonly ExportTableGroup[] = [
       'Muestra_Tags'
     ]
   },
-  { id: 'users', tables: ['profiles'] }
+  { id: 'users', tables: ['profiles'] },
+  { id: 'log', tables: ['Registro'] }
 ]
 
 export type TableDump = Record<string, Record<string, unknown>[]>

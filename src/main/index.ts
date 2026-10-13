@@ -4,8 +4,9 @@ import fs from 'fs'
 import Store from 'electron-store'
 import type Database from 'better-sqlite3'
 import { initSchema, openDatabase } from './db'
-import { hasAdminCode, hasUsers, createUser, login, setAdminCode, toAuthUser, verifyAdminCode } from './auth'
+import { hasAdminCode, hasUsers, changeAdminCode, createUser, listUsers, login, setAdminCode, setUserRole, toAuthUser, verifyAdminCode } from './auth'
 import { executeDbRequest } from './query'
+import { localActor, safeWriteRegistro } from './registro'
 import { exportDatabase } from './exportDb'
 import type { ExportFormat } from '../shared/types'
 import * as docs from './documentos'
@@ -321,6 +322,65 @@ function registerIpc(): void {
 
   ipcMain.handle('auth:getSessionRole', () => session?.role ?? null)
 
+  ipcMain.handle('auth:listUsers', () => {
+    if (session?.role !== 'admin') {
+      return { ok: false as const, error: 'Solo el administrador puede ver usuarios', users: [] }
+    }
+    return { ok: true as const, users: listUsers(ensureDb()) }
+  })
+
+  ipcMain.handle('auth:changeAdminCode', (_e, currentCode: string, nextCode: string) => {
+    if (session?.role !== 'admin') {
+      return { ok: false as const, error: 'Solo el administrador puede cambiar el código maestro' }
+    }
+    const result = changeAdminCode(
+      ensureDb(),
+      String(currentCode ?? ''),
+      String(nextCode ?? '')
+    )
+    if (result.ok) {
+      try {
+        const a = localActor(session.username ?? session.email)
+        safeWriteRegistro(ensureDb(), {
+          usuario: a.username,
+          accion: 'update',
+          tabla: 'meta',
+          detalle: 'código maestro',
+          ip: a.ip,
+          equipo: a.host
+        })
+      } catch {
+        /* ignore */
+      }
+    }
+    return result
+  })
+
+  ipcMain.handle('auth:setUserRole', (_e, id: string, role: Role) => {
+    if (session?.role !== 'admin') {
+      return { ok: false as const, error: 'Solo el administrador puede cambiar roles' }
+    }
+    const result = setUserRole(ensureDb(), String(id ?? ''), role)
+    if (result.ok) {
+      if (session.id === id) session = { ...session, role }
+      try {
+        const a = localActor(session.username ?? session.email)
+        const user = listUsers(ensureDb()).find((u) => u.id === id)
+        safeWriteRegistro(ensureDb(), {
+          usuario: a.username,
+          accion: 'update',
+          tabla: 'users',
+          detalle: `usuario=${user?.email ?? id} rol=${role}`,
+          ip: a.ip,
+          equipo: a.host
+        })
+      } catch {
+        /* ignore */
+      }
+    }
+    return result
+  })
+
   ipcMain.handle('fn:create-user', (_e, method: string, body?: {
     email?: string
     password?: string
@@ -344,24 +404,73 @@ function registerIpc(): void {
           error: { message: result.error, status: result.status ?? 400 }
         }
       }
+      try {
+        const a = localActor(session?.username ?? session?.email)
+        safeWriteRegistro(database, {
+          usuario: a.username,
+          accion: 'insert',
+          tabla: 'users',
+          detalle: `usuario=${result.user?.email ?? ''} rol=${result.user?.role ?? ''}`,
+          ip: a.ip,
+          equipo: a.host
+        })
+      } catch {
+        /* ignore */
+      }
       return { data: { user: result.user }, error: null }
     }
     return { data: null, error: { message: 'Método no soportado' } }
   })
 
-  ipcMain.handle('db:request', (_e, req: DbRequest) => executeDbRequest(ensureDb(), req))
+  ipcMain.handle('db:request', (_e, req: DbRequest) =>
+    executeDbRequest(
+      ensureDb(),
+      req,
+      localActor(session?.username ?? session?.email),
+      session?.role ?? null
+    )
+  )
 
   ipcMain.handle('export:database', async (_e, format: ExportFormat, tables?: unknown) => {
+    if (session?.role !== 'admin') {
+      return { ok: false as const, error: 'Solo el administrador puede exportar' }
+    }
     return exportDatabase(ensureDb(), ensureDataPath(), format, tables, mainWindow)
   })
 
   ipcMain.handle('docs:list', () => docs.listDocumentos(ensureDataPath()))
   ipcMain.handle('docs:upload', async (_e, name: string, data: ArrayBuffer) => {
     await docs.uploadDocumento(ensureDataPath(), name, data)
+    try {
+      const a = localActor(session?.username ?? session?.email)
+      safeWriteRegistro(ensureDb(), {
+        usuario: a.username,
+        accion: 'insert',
+        tabla: 'documentos',
+        detalle: String(name ?? ''),
+        ip: a.ip,
+        equipo: a.host
+      })
+    } catch {
+      /* ignore */
+    }
     return { ok: true }
   })
   ipcMain.handle('docs:delete', async (_e, name: string) => {
     await docs.deleteDocumento(ensureDataPath(), name)
+    try {
+      const a = localActor(session?.username ?? session?.email)
+      safeWriteRegistro(ensureDb(), {
+        usuario: a.username,
+        accion: 'delete',
+        tabla: 'documentos',
+        detalle: String(name ?? ''),
+        ip: a.ip,
+        equipo: a.host
+      })
+    } catch {
+      /* ignore */
+    }
     return { ok: true }
   })
   ipcMain.handle('docs:read', async (_e, name: string) => {

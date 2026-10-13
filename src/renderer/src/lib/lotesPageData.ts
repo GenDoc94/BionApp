@@ -100,6 +100,7 @@ export type LoteUsoExtraido = { NumBN: number; Estado_Muestra: number | null }
 export type LoteUsoChip = {
   NumChip: number
   Nombre_Chip: string | null
+  Apodo: string | null
   fcColors: [LoteEstadoColor, LoteEstadoColor, LoteEstadoColor]
 }
 
@@ -483,7 +484,13 @@ export function groupUsosLm(
 }
 
 export function groupUsosChip(
-  rows: Array<{ Id_LtC?: unknown; NumChip_D?: unknown; NumChip?: unknown; Nombre_Chip?: unknown }>,
+  rows: Array<{
+    Id_LtC?: unknown
+    NumChip_D?: unknown
+    NumChip?: unknown
+    Nombre_Chip?: unknown
+    Apodo?: unknown
+  }>,
   asignaciones: Array<{
     NumChip?: unknown
     FC?: unknown
@@ -510,9 +517,11 @@ export function groupUsosChip(
     const numChip = Number(row.NumChip_D ?? row.NumChip)
     if (!Number.isFinite(id) || !Number.isFinite(numChip)) continue
     const fcMap = byChip.get(numChip) ?? new Map()
+    const apodo = row.Apodo == null ? "" : String(row.Apodo).trim()
     const uso: LoteUsoChip = {
       NumChip: numChip,
       Nombre_Chip: row.Nombre_Chip == null ? null : String(row.Nombre_Chip),
+      Apodo: apodo || null,
       fcColors: CHIP_FC_SLOTS.map((fc) => chipFcEstadoColor(fcMap.get(fc))) as LoteUsoChip["fcColors"],
     }
     const arr = map.get(id)
@@ -564,7 +573,8 @@ export function filterLots(
     return chips.some(
       (u) =>
         String(u.NumChip).includes(q) ||
-        (u.Nombre_Chip != null && u.Nombre_Chip.toLowerCase().includes(q))
+        (u.Nombre_Chip != null && u.Nombre_Chip.toLowerCase().includes(q)) ||
+        (u.Apodo != null && u.Apodo.toLowerCase().includes(q))
     )
   })
 }

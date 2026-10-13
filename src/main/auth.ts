@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { getMeta, setMeta, sha256 } from './db'
 import { touchLastWrite } from './dbActivity'
 import type { AuthUser, Role, UserSession } from '../shared/types'
+import { isRole } from '../shared/roles'
 
 const ADMIN_CODE_META = 'admin_code_hash'
 
@@ -62,6 +63,37 @@ export function setAdminCode(db: Database.Database, adminCode: string): { ok: tr
   return { ok: true }
 }
 
+export function changeAdminCode(
+  db: Database.Database,
+  currentCode: string,
+  nextCode: string
+): { ok: true } | { ok: false; error: string } {
+  const current = String(currentCode ?? '').trim()
+  const next = String(nextCode ?? '').trim()
+  if (!hasAdminCode(db)) {
+    return {
+      ok: false,
+      error: 'No hay código maestro en esta carpeta. Configúralo en el setup inicial.'
+    }
+  }
+  if (!verifyAdminCode(db, current)) {
+    return { ok: false, error: 'Código maestro incorrecto' }
+  }
+  if (next.length < 4) {
+    return { ok: false, error: 'El código maestro debe tener al menos 4 caracteres' }
+  }
+  if (sha256(next) === sha256(current)) {
+    return { ok: false, error: 'El código maestro nuevo tiene que ser distinto' }
+  }
+  setMeta(db, ADMIN_CODE_META, sha256(next))
+  try {
+    touchLastWrite(db)
+  } catch {
+    /* ignore */
+  }
+  return { ok: true }
+}
+
 export function createUser(
   db: Database.Database,
   payload: { email: string; password: string; role: Role; adminCode: string }
@@ -74,7 +106,7 @@ export function createUser(
   if (!email || !password || !adminCode) {
     return { error: 'Completa correo, contraseña y código maestro', status: 400 }
   }
-  if (role !== 'user' && role !== 'admin') {
+  if (!isRole(role)) {
     return { error: 'Rol no válido', status: 400 }
   }
   if (password.length < 4) {
@@ -121,4 +153,50 @@ export function getProfileRole(
     .prepare('SELECT role FROM users WHERE username = ? COLLATE NOCASE')
     .get(username.trim()) as { role: Role } | undefined
   return row?.role ?? null
+}
+
+export type UserRoleRow = {
+  id: string
+  email: string
+  role: Role
+}
+
+export function listUsers(db: Database.Database): UserRoleRow[] {
+  const rows = db
+    .prepare(
+      `SELECT id, username, role FROM users ORDER BY username COLLATE NOCASE`
+    )
+    .all() as Array<{ id: string; username: string; role: Role }>
+  return rows.map((row) => ({ id: row.id, email: row.username, role: row.role }))
+}
+
+export function setUserRole(
+  db: Database.Database,
+  id: string,
+  role: Role
+): { ok: true } | { ok: false; error: string } {
+  if (!isRole(role)) {
+    return { ok: false, error: 'Rol no válido' }
+  }
+  const existing = db
+    .prepare('SELECT id, role FROM users WHERE id = ?')
+    .get(id) as { id: string; role: Role } | undefined
+  if (!existing) {
+    return { ok: false, error: 'Usuario no encontrado' }
+  }
+  if (existing.role === 'admin' && role !== 'admin') {
+    const count = db
+      .prepare(`SELECT COUNT(*) AS n FROM users WHERE role = 'admin'`)
+      .get() as { n: number }
+    if (Number(count.n) <= 1) {
+      return { ok: false, error: 'Tiene que quedar al menos un administrador' }
+    }
+  }
+  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id)
+  try {
+    touchLastWrite(db)
+  } catch {
+    /* ignore */
+  }
+  return { ok: true }
 }

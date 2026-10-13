@@ -4,6 +4,7 @@ import {
   boxIconStates,
   buildStockGroups,
   catalogNombresFromRows,
+  catalogTiposFromRows,
   consumedBoxesByEnvio,
   filterStockGroups,
   nombreForBio,
@@ -59,6 +60,7 @@ describe("buildStockGroups", () => {
       totalCajas: 6,
       Lugar: "Nevera 2",
       Cajas_Quedan: 4,
+      splitTemps: true,
     })
     expect(labeling?.lns[0].envios.map((e) => e.Sales_Order)).toEqual(["WR-B", "WR-A"])
     expect(labeling?.lns[0].envios.map((e) => e.Num_Cajas)).toEqual([3, 3])
@@ -70,6 +72,16 @@ describe("buildStockGroups", () => {
       "BIO-80117": "Kit DLS catálogo",
     })
     expect(groups.find((g) => g.Codigo_BIO === "BIO-80117")?.Nombre).toBe("Kit DLS catálogo")
+  })
+
+  it("splits labeling/extraction kits but not chip packs", () => {
+    const groups = buildStockGroups(cajas, [], envios, {}, {
+      "BIO-80117": "marcado",
+      "BIO-80118": "chip",
+    })
+    expect(groups.find((g) => g.Codigo_BIO === "BIO-80117")?.splitTemps).toBe(true)
+    expect(groups.find((g) => g.Codigo_BIO === "BIO-80117")?.lns[0].splitTemps).toBe(true)
+    expect(groups.find((g) => g.Codigo_BIO === "BIO-80118")?.splitTemps).toBe(false)
   })
 })
 
@@ -83,6 +95,7 @@ describe("filterStockGroups and helpers", () => {
     expect(filterStockGroups(groups, "80117")).toHaveLength(1)
     expect(filterStockGroups(groups, "WR-B")).toHaveLength(1)
     expect(filterStockGroups(groups, "nevera")).toHaveLength(1)
+    expect(filterStockGroups(groups, "80117-2")).toHaveLength(1)
     expect(filterStockGroups(groups, "nope")).toHaveLength(0)
     expect(nombreForBio(cajas, "80117")).toMatch(/Labeling Kit/)
     expect(parseQuedanInput("")).toBe(null)
@@ -94,6 +107,9 @@ describe("filterStockGroups and helpers", () => {
     expect(boxIconStates(20, 15)).toEqual({ shown: 12, shownConsumed: 12, extra: 8 })
     expect(catalogNombresFromRows([{ Codigo_BIO: "80117", Nombre: "DLS" }])).toEqual({
       "BIO-80117": "DLS",
+    })
+    expect(catalogTiposFromRows([{ Codigo_BIO: "80066", Tipo: "chip" }])).toEqual({
+      "BIO-80066": "chip",
     })
   })
 })

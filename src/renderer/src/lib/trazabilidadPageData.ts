@@ -7,6 +7,7 @@ export type TrazabilidadChip = {
   nombre: string | null
   fc: number | null
   loteChipLn: string | null
+  maquinaApodo: string | null
 }
 
 export type TrazabilidadLm = {
@@ -75,6 +76,8 @@ export type TrazabilidadDChipInput = {
   NumChip_D: unknown
   Nombre_Chip?: unknown
   Id_LtC?: unknown
+  Id_Maquina?: unknown
+  Apodo?: unknown
 }
 
 export type TrazabilidadCatalogo = {
@@ -91,6 +94,12 @@ export type TrazabilidadCatalogo = {
 function num(value: unknown): number | null {
   const n = Number(value)
   return Number.isFinite(n) ? n : null
+}
+
+function apodoDeDChip(d: TrazabilidadDChipInput | undefined): string | null {
+  if (!d) return null
+  const apodo = d.Apodo != null ? String(d.Apodo).trim() : ""
+  return apodo || null
 }
 
 function lnOf(lotes: LoteCatalogo[], tipo: LoteTipo, id: number | null): string | null {
@@ -124,6 +133,7 @@ function chipsDeLm(
       nombre: d?.Nombre_Chip != null ? String(d.Nombre_Chip) : null,
       fc: num(c.FC),
       loteChipLn: lnOf(catalog.lotes, "chip", idLtC),
+      maquinaApodo: apodoDeDChip(d),
     })
   }
   return out.sort((a, b) => a.numChip - b.numChip || (a.fc ?? 0) - (b.fc ?? 0))
@@ -224,6 +234,7 @@ function chipsCatalogoDeLote(catalog: TrazabilidadCatalogo, lot: LoteCatalogo): 
       nombre: d.Nombre_Chip != null ? String(d.Nombre_Chip) : null,
       fc: null,
       loteChipLn: lot.LN,
+      maquinaApodo: apodoDeDChip(d),
     })
   }
   return out.sort((a, b) => a.numChip - b.numChip)
@@ -372,6 +383,14 @@ export function findEnviosForQuery(catalog: TrazabilidadCatalogo, query: string)
   }
   for (const lot of catalog.lotes) {
     if (!lot.LN.toLowerCase().includes(q)) continue
+    for (const envio of enviosForLn(catalog, lot.LN)) ids.add(envio.id)
+  }
+  for (const d of catalog.dchips) {
+    const apodo = String(d.Apodo ?? "").trim().toLowerCase()
+    if (!apodo || !apodo.includes(q)) continue
+    const idLtC = num(d.Id_LtC)
+    const lot = idLtC != null ? catalog.lotes.find((l) => l.tipo === "chip" && l.id === idLtC) : null
+    if (!lot) continue
     for (const envio of enviosForLn(catalog, lot.LN)) ids.add(envio.id)
   }
   return [...ids]

@@ -2,7 +2,8 @@ import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
-import { ensureLotesChipsSchema, ensureEnviosSchema, migrateHomogenizeLotExps, migrateLegacyLotColumns } from './lotes'
+import { ensureLotesChipsSchema, ensureDMaquinasSchema, ensureEnviosSchema, migrateHomogenizeLotExps, migrateLegacyLotColumns } from './lotes'
+import { ensureRegistroSchema } from './registro'
 
 export const DB_FILENAME = 'bionapp.sqlite'
 
@@ -112,6 +113,54 @@ function migrateTableColumnToText(
   }
 }
 
+/** Amplía CHECK de users.role para incluir tel. Idempotente. */
+function migrateUsersRoleCheck(db: Database.Database): void {
+  const createRow = db
+    .prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'`)
+    .get() as { sql: string } | undefined
+  if (!createRow?.sql) return
+  if (/\btel\b/i.test(createRow.sql)) return
+  if (!/CHECK\s*\(\s*role\s+IN\s*\(/i.test(createRow.sql)) return
+
+  const nextSql = createRow.sql.replace(
+    /CHECK\s*\(\s*role\s+IN\s*\([^)]*\)\s*\)/i,
+    "CHECK(role IN ('user','admin','tel'))"
+  )
+  if (nextSql === createRow.sql) return
+
+  const tmp = 'users__roles'
+  const createSql = rewriteCreateTableName(nextSql, tmp)
+  const info = db.prepare(`PRAGMA table_info("users")`).all() as Array<{ name: string }>
+  const names = info.map((c) => `"${c.name}"`).join(', ')
+  const indexes = db
+    .prepare(
+      `SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'users' AND sql IS NOT NULL`
+    )
+    .all() as Array<{ sql: string }>
+
+  const fkOn = Boolean(db.pragma('foreign_keys', { simple: true }))
+  db.pragma('foreign_keys = OFF')
+  try {
+    db.transaction(() => {
+      db.exec(`DROP VIEW IF EXISTS profiles`)
+      db.exec(`DROP TABLE IF EXISTS "${tmp}"`)
+      db.exec(createSql)
+      db.exec(`INSERT INTO "${tmp}" (${names}) SELECT ${names} FROM users`)
+      db.exec(`DROP TABLE users`)
+      db.exec(`ALTER TABLE "${tmp}" RENAME TO users`)
+      for (const idx of indexes) {
+        if (idx.sql) db.exec(idx.sql)
+      }
+      db.exec(`
+        CREATE VIEW IF NOT EXISTS profiles AS
+          SELECT id, username, role FROM users;
+      `)
+    })()
+  } finally {
+    db.pragma(`foreign_keys = ${fkOn ? 'ON' : 'OFF'}`)
+  }
+}
+
 /** Nº de petición alfanumérico (letras y números de hospitales). */
 export function migratePeticColumnsToText(db: Database.Database): void {
   migrateTableColumnToText(db, 'Muestras', 'Petic')
@@ -149,7 +198,7 @@ export function initSchema(db: Database.Database): void {
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE COLLATE NOCASE,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin')),
+      role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin','tel')),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -169,6 +218,11 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS DMuestra (
       Cod INTEGER PRIMARY KEY,
       TipoMuestra TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS DMaquinas (
+      Cod INTEGER PRIMARY KEY,
+      Apodo TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS DCajas (
@@ -208,6 +262,9 @@ export function initSchema(db: Database.Database): void {
       Codigo_BIO TEXT NOT NULL,
       LN TEXT NOT NULL,
       Lugar TEXT NOT NULL DEFAULT '',
+      Lugar_1 TEXT NOT NULL DEFAULT '',
+      Lugar_2 TEXT NOT NULL DEFAULT '',
+      Lugar_3 TEXT NOT NULL DEFAULT '',
       Cajas_Quedan INTEGER,
       PRIMARY KEY (Codigo_BIO, LN)
     );
@@ -363,12 +420,15 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS Lectura_NumBN_idx ON Lectura(NumBN_L);
     CREATE INDEX IF NOT EXISTS Chips_NumBN_idx ON Chips(NumBN_C);
   `)
+  migrateUsersRoleCheck(db)
   migrateLegacyLotColumns(db)
   migrateHomogenizeLotExps(db)
   migratePeticColumnsToText(db)
   ensureFiltrosSchema(db)
   ensureLotesChipsSchema(db)
+  ensureDMaquinasSchema(db)
   ensureEnviosSchema(db)
+  ensureRegistroSchema(db)
   db.exec(`
     CREATE INDEX IF NOT EXISTS Muestras_Id_LtE_idx ON Muestras(Id_LtE);
     CREATE INDEX IF NOT EXISTS Lecturas_Marcado_Id_LtM_idx ON Lecturas_Marcado(Id_LtM);

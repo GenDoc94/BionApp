@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { bioToPn, normalizeBioCode, pnMatchesBio, sameLn, stockKey } from "./bioCodes"
+import { bioToPn, normalizeBioCode, pnMatchesBio, sameLn, stockKey, subcajaCode } from "./bioCodes"
 
 describe("normalizeBioCode", () => {
   it("accepts BIO-80117, 80117 and bio80117", () => {
@@ -23,5 +23,13 @@ describe("sameLn and stockKey", () => {
   it("groups BIO+LN ignoring case", () => {
     expect(sameLn("260212126", " 260212126 ")).toBe(true)
     expect(stockKey("80117", "260212126")).toBe(stockKey("BIO-80117", "260212126"))
+  })
+})
+
+describe("subcajaCode", () => {
+  it("builds XXXXX-N from BIO-XXXXX", () => {
+    expect(subcajaCode("BIO-80046", 1)).toBe("80046-1")
+    expect(subcajaCode("80046", 2)).toBe("80046-2")
+    expect(subcajaCode("BIO-80117", 3)).toBe("80117-3")
   })
 })

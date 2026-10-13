@@ -30,6 +30,19 @@ const api = {
   getSession: () => ipcRenderer.invoke('auth:session'),
   getUser: () => ipcRenderer.invoke('auth:getUser'),
   getSessionRole: (): Promise<Role | null> => ipcRenderer.invoke('auth:getSessionRole'),
+  listUsers: (): Promise<
+    { ok: true; users: Array<{ id: string; email: string; role: Role }> } | { ok: false; error: string; users: [] }
+  > => ipcRenderer.invoke('auth:listUsers'),
+  setUserRole: (
+    id: string,
+    role: Role
+  ): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('auth:setUserRole', id, role),
+  changeAdminCode: (
+    currentCode: string,
+    nextCode: string
+  ): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('auth:changeAdminCode', currentCode, nextCode),
 
   createUserFn: (method: string, body?: unknown) =>
     ipcRenderer.invoke('fn:create-user', method, body),

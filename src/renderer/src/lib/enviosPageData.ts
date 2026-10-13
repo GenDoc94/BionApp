@@ -1,5 +1,6 @@
 import { LOTE_TIPOS, type LoteEnvioAsignado, type LoteRow, type LoteTipo } from "./lotesPageData"
 import { normalizeBioCode, sameLn } from "./bioCodes"
+import { cajaTieneSubcajas, type CajaTipo } from "./dCajas"
 
 export type EnvioRow = {
   id: number
@@ -175,6 +176,23 @@ export function countCajasEnvio(cajas: EnvioCajaRow[], envioId: number): number 
   let n = 0
   for (const c of cajas) if (c.idEnvio === envioId) n += c.Num_Cajas
   return n
+}
+
+/** Kits (extracción/marcaje: 3 subcajas) frente a cajas físicas de chip. */
+export function countEnvioKitsYCajas(
+  cajas: EnvioCajaRow[],
+  envioId: number,
+  tipoByBio: Record<string, CajaTipo> = {}
+): { kits: number; cajas: number } {
+  let kits = 0
+  let chipBoxes = 0
+  for (const c of cajas) {
+    if (c.idEnvio !== envioId) continue
+    const n = Number.isFinite(c.Num_Cajas) ? Math.max(0, c.Num_Cajas) : 0
+    if (cajaTieneSubcajas(tipoByBio[normalizeBioCode(c.Codigo_BIO)] ?? null)) kits += n
+    else chipBoxes += n
+  }
+  return { kits, cajas: chipBoxes }
 }
 
 export function lotesDeEnvio(

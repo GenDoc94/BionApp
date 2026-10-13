@@ -9,6 +9,12 @@ export type ChipAsignacion = {
 export type ChipCatalogo = {
     NumChip_D: number;
     Nombre_Chip?: string | null;
+    Id_LtC?: number | null;
+    Id_Maquina?: number | null;
+    Apodo?: string | null;
+    LN?: string | null;
+    PN?: string | null;
+    Exp?: string | null;
 };
 export type ChipPanelData = {
     chip: ChipCatalogo;
