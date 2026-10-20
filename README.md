@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/bionapp-logo.png" alt="BionApp" width="420">
+</p>
+
 # BionApp desktop
 
 Aplicación de escritorio (**beta**) para la **gestión de muestras de OGM** en laboratorio. Sigue en prueba. Misma interfaz y esquema de datos que la edición online, con SQLite local en lugar de Supabase/Vercel.
