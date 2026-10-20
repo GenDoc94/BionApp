@@ -1,6 +1,4 @@
-<h1 align="center">
-  <img src="docs/bionapp-logo.png" alt="BionApp" width="420">
-</h1>
+# ![BionApp](docs/bionapp-logo.png)
 
 Aplicación de escritorio (**beta**) para la **gestión de muestras de OGM** en laboratorio. Sigue en prueba. Misma interfaz y esquema de datos que la edición online, con SQLite local en lugar de Supabase/Vercel.
 
@@ -17,14 +15,15 @@ El `.exe` no está firmado. Si Windows SmartScreen avisa: *Más información* �
 
 ## Citar
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22116491.svg)](https://doi.org/10.5281/zenodo.22116491)
+![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22116491.svg)
 
-Usa el botón **Cite this repository** de GitHub o el archivo [`CITATION.cff`](CITATION.cff).
+Usa el botón **Cite this repository** de GitHub o el archivo `[CITATION.cff](CITATION.cff)`.
 
 Autor: [Juan José Domínguez-García](https://orcid.org/0000-0001-6210-1294) ([GenDoc94](https://github.com/GenDoc94)).
 
 - DOI de concepto (citar BionApp): [10.5281/zenodo.22116491](https://doi.org/10.5281/zenodo.22116491)
-- DOI de esta versión (v3.0.10): [10.5281/zenodo.22116492](https://doi.org/10.5281/zenodo.22116492)
+
+
 
 ## Declaración de inteligencia artificial y aviso
 
@@ -49,15 +48,6 @@ npm run dist
 
 El portable queda en `release/BionApp.exe`.
 
-Publicar una versión: con Zenodo ya conectado al repo, sube los cambios a `master` y crea el tag:
-
-```bash
-git tag v4.2.0
-git push origin v4.2.0
-```
-
-GitHub Actions empaqueta el `.exe` y abre el Release. Zenodo archiva el tag y asigna el DOI.
-
 ## Arquitectura
 
 - `src/main` — Electron + better-sqlite3 + IPC
@@ -65,5 +55,7 @@ GitHub Actions empaqueta el `.exe` y abre el Release. Zenodo archiva el tag y as
 - `src/renderer` — React (UI)
 - `src/shared` — tipos compartidos
 - `resources/` — icono de la app
+
+
 
 Licencia [MIT](LICENSE). Seguridad: [SECURITY.md](SECURITY.md).
