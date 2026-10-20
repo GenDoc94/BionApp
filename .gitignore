@@ -12,6 +12,12 @@
 *.log
 npm-debug.log*
 
+# caches de herramientas (no son código)
+*.tsbuildinfo
+__pycache__/
+*.pyc
+electron.vite.config.*.mjs
+
 # local secrets / dumps
 .env
 .env.*
