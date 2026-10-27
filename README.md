@@ -1,5 +1,7 @@
 # ![BionApp](docs/bionapp-logo.png)
 
+[![Version](https://img.shields.io/github/package-json/v/GenDoc94/BionApp?label=version)](https://github.com/GenDoc94/BionApp/blob/master/CHANGELOG.md)
+
 Desktop application in testing (**beta**) for **Optical Genome Mapping (OGM) sample management** in the laboratory.
 
 **Windows x64 · portable · no cloud account.**
@@ -15,7 +17,7 @@ The `.exe` is not signed. If Windows SmartScreen warns you: *More info* → *Run
 
 ## Cite
 
-![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22116491.svg)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.22116491-blue)](https://doi.org/10.5281/zenodo.22116491)
 
 Use GitHub’s **Cite this repository** button or the [`CITATION.cff`](CITATION.cff) file.
 
