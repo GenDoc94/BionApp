@@ -1,6 +1,6 @@
 # ![BionApp](docs/bionapp-logo.png)
 
-Desktop application in testing (**beta**) for **OGM (GMO) sample management** in the laboratory.
+Desktop application in testing (**beta**) for **Optical Genome Mapping (OGM) sample management** in the laboratory.
 
 **Windows x64 · portable · no cloud account.**
 
