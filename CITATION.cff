@@ -15,14 +15,14 @@ identifiers:
     value: 10.5281/zenodo.22116492
     description: DOI de la versión 3.0.10
 abstract: >-
-  BionApp (beta) is a desktop application for laboratory management of GMO
-  (OGM) samples. This edition runs fully locally (Electron and SQLite):
+  BionApp (beta) is a desktop application for laboratory management of
+  Optical Genome Mapping (OGM) samples. This edition runs fully locally (Electron and SQLite):
   no cloud account is required. Data stay in a folder chosen by the user.
   The software is under testing and is not a certified clinical system.
 keywords:
   - BionApp
   - OGM
-  - GMO
+  - Optical Genome Mapping
   - laboratory
   - sample management
   - Electron
