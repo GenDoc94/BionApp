@@ -23,4 +23,4 @@ App de escritorio local (Electron + SQLite). No usa Supabase en runtime ni sube 
 
 **No abras un issue público** si el informe puede ayudar a explotar un fallo.
 
-Usa un [aviso de seguridad privado en GitHub](https://github.com/GenDoc94/BionApp_desktop/security/advisories/new) o contacta al mantenedor por un canal privado.
+Usa un [aviso de seguridad privado en GitHub](https://github.com/GenDoc94/BionApp/security/advisories/new) o contacta al mantenedor por un canal privado.

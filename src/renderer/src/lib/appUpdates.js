@@ -46,7 +46,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 import pkg from "bionapp-pkg";
 import i18n from "../i18n";
 import { getChangesForVersion } from "./changelog";
-export var UPDATE_REPO = "GenDoc94/BionApp_desktop";
+export var UPDATE_REPO = "GenDoc94/BionApp";
 export var UPDATE_BRANCH = "master";
 var BRANCH_FALLBACKS = ["master", "main"];
 /** Quita el prefijo `v` de un tag de GitHub (`v3.0.10` → `3.0.10`). */

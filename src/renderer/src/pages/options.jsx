@@ -2091,7 +2091,7 @@ export default function Options() {
                     components={{
                       citation: (
                         <a
-                          href="https://github.com/GenDoc94/BionApp_desktop/blob/master/CITATION.cff"
+                          href="https://github.com/GenDoc94/BionApp/blob/master/CITATION.cff"
                           target="_blank"
                           rel="noreferrer"
                           className="font-medium text-foreground underline underline-offset-2 hover:opacity-80"

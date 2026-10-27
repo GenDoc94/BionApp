@@ -1,4 +1,4 @@
-export declare const UPDATE_REPO = "GenDoc94/BionApp_desktop";
+export declare const UPDATE_REPO = "GenDoc94/BionApp";
 export declare const UPDATE_BRANCH = "master";
 /** Quita el prefijo `v` de un tag de GitHub (`v3.0.10` → `3.0.10`). */
 export declare function stripVersionPrefix(tag: string): string;

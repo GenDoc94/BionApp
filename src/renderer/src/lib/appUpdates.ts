@@ -2,7 +2,7 @@ import pkg from "bionapp-pkg";
 import i18n from "../i18n";
 import { getChangesForVersion } from "./changelog";
 
-export const UPDATE_REPO = "GenDoc94/BionApp_desktop";
+export const UPDATE_REPO = "GenDoc94/BionApp";
 export const UPDATE_BRANCH = "master";
 const BRANCH_FALLBACKS = ["master", "main"];
 

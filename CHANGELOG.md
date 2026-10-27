@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.2.1
+
+- README y guía de uso (`docs/uso.md`) en inglés. La guía cubre instalación y datos, y remite al manual de la app para el trabajo de laboratorio.
+- El repositorio de GitHub pasa a llamarse **BionApp**. Los enlaces y la búsqueda de actualizaciones usan ese nombre.
+
 ## 4.2.0
 
 - Roles **Usuario** (consulta), **TEL** (meter y modificar datos de laboratorio) y **Administrador** (acceso completo). En Perfil, el administrador ve la lista de usuarios, cambia roles y puede cambiar el código maestro.

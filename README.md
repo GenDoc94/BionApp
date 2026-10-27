@@ -1,44 +1,42 @@
 # ![BionApp](docs/bionapp-logo.png)
 
-Aplicación de escritorio (**beta**) para la **gestión de muestras de OGM** en laboratorio. Sigue en prueba. Misma interfaz y esquema de datos que la edición online, con SQLite local en lugar de Supabase/Vercel.
+Desktop application in testing (**beta**) for **OGM (GMO) sample management** in the laboratory.
 
-**Windows x64 · portable · sin cuenta en la nube.**
+**Windows x64 · portable · no cloud account.**
 
-## Descargar
+## Download
 
-1. Ve a [Releases](https://github.com/GenDoc94/BionApp_desktop/releases/latest).
-2. Descarga `BionApp.exe` y ejecútalo.
+1. Go to [Releases](https://github.com/GenDoc94/BionApp/releases/latest).
+2. Download `BionApp.exe` and run it.
 
-En el **primer arranque** eliges la carpeta de datos y un código maestro. Ahí se crean `bionapp.sqlite` y `documentos/`. Guía completa: [docs/uso.md](docs/uso.md).
+On **first launch** you choose a data folder and a master code. That creates `bionapp.sqlite` and `documentos/`. Full guide: [docs/uso.md](docs/uso.md).
 
-El `.exe` no está firmado. Si Windows SmartScreen avisa: *Más información* → *Ejecutar de todas formas*.
+The `.exe` is not signed. If Windows SmartScreen warns you: *More info* → *Run anyway*.
 
-## Citar
+## Cite
 
 ![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22116491.svg)
 
-Usa el botón **Cite this repository** de GitHub o el archivo `[CITATION.cff](CITATION.cff)`.
+Use GitHub’s **Cite this repository** button or the [`CITATION.cff`](CITATION.cff) file.
 
-Autor: [Juan José Domínguez-García](https://orcid.org/0000-0001-6210-1294) ([GenDoc94](https://github.com/GenDoc94)).
+Author: [Juan José Domínguez-García](https://orcid.org/0000-0001-6210-1294) ([GenDoc94](https://github.com/GenDoc94)).
 
-- DOI de concepto (citar BionApp): [10.5281/zenodo.22116491](https://doi.org/10.5281/zenodo.22116491)
+- Concept DOI (cite BionApp): [10.5281/zenodo.22116491](https://doi.org/10.5281/zenodo.22116491)
 
+## Artificial intelligence statement and notice
 
+Artificial intelligence was used to **generate application code**.
 
-## Declaración de inteligencia artificial y aviso
+The **original software idea**, the **foundations**, the **full architecture** of the app and its **intended use** are by [GenDoc94](https://github.com/GenDoc94) (Juan José Domínguez-García). AI is not the author of the product or of its laboratory design: it is an implementation tool under the author’s direction.
 
-Se ha utilizado inteligencia artificial para la **generación de código** de la aplicación.
+BionApp **was not created by a professional software engineer**, but by a **physician interested in computing**. There may be **code errors and even conceptual ones**. The author **is not liable** for damage, data loss, clinical or laboratory decisions, or any other harm arising from use of this application. It is provided as-is, in beta, under the [MIT license](LICENSE).
 
-La **idea original** del desarrollo de software, las **bases**, **toda la arquitectura** de la app y su **uso** son de [GenDoc94](https://github.com/GenDoc94) (Juan José Domínguez-García). La IA no es autora del producto ni de su diseño de laboratorio: es una herramienta de implementación bajo dirección del autor.
+This statement also appears on the *Authorship* tab inside the app.
 
-BionApp **no ha sido creada por un informático profesional**, sino por un **médico aficionado a la informática**. Puede haber **errores de código e incluso de concepto**. El autor **no se responsabiliza** de daños, pérdidas de datos, decisiones clínicas o de laboratorio, ni de cualquier otro perjuicio derivado del uso de esta aplicación. Se ofrece tal cual, en fase beta, bajo la [licencia MIT](LICENSE).
-
-Esta declaración también aparece en la pestaña *Autoría* de la propia app.
-
-## Requisitos para desarrollar
+## Requirements to develop
 
 - Node.js 20+
-- Windows (empaquetado portable)
+- Windows (portable packaging)
 
 ```bash
 npm ci
@@ -46,16 +44,14 @@ npm test
 npm run dist
 ```
 
-El portable queda en `release/BionApp.exe`.
+The portable build is written to `release/BionApp.exe`.
 
-## Arquitectura
+## Architecture
 
 - `src/main` — Electron + better-sqlite3 + IPC
 - `src/preload` — `window.api`
 - `src/renderer` — React (UI)
-- `src/shared` — tipos compartidos
-- `resources/` — icono de la app
+- `src/shared` — shared types
+- `resources/` — app icon
 
-
-
-Licencia [MIT](LICENSE). Seguridad: [SECURITY.md](SECURITY.md).
+License [MIT](LICENSE). Security: [SECURITY.md](SECURITY.md).
